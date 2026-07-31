@@ -1,0 +1,13 @@
+{
+  "name": "Apparka Training Flow",
+  "short_name": "Training Flow",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f7fa",
+  "theme_color": "#102a43",
+  "description": "Plataforma para periodos de prueba, evidencias y examen final.",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

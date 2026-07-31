@@ -1,0 +1,52 @@
+@inject ApparkaTrainingFlowOnline.Services.PeruClock Clock
+@inject Microsoft.Extensions.Options.IOptions<TrainingOptions> TrainingConfig
+@model ActivityPageViewModel
+@{ ViewData["Title"] = Model.Evidence.Template.Title; var e = Model.Evidence; }
+<section class="page-header"><p class="eyebrow">SEMANA @e.WeekNumber · EVIDENCIA @e.Sequence</p><h1>@e.Template.Title</h1><p>Plazo: @Clock.Format(e.AvailableFrom, "dd/MM/yyyy") al @Clock.Format(e.DueAt)</p></section>
+@if (e.Status == EvidenceStatus.Available)
+{
+    <section class="card procedure-card"><div class="step-label">PASO 1 · PRESENCIA Y DOBLE IDENTIDAD</div><h2>Solicita el código temporal</h2><p>El supervisor genera un código válido por @TrainingConfig.Value.ValidationCodeMinutes minutos. Tú debes ingresarlo desde tu propia cuenta y dispositivo.</p><div class="security-list"><span>✓ Un solo uso</span><span>✓ Vinculado a esta actividad</span><span>✓ Registra fecha, hora, IP y dispositivo</span></div><form asp-action="StartActivity" method="post" class="code-form"><input type="hidden" name="evidenceId" value="@e.Id" /><input name="oneTimeCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" pattern="[0-9 -]{6,8}" placeholder="000000" aria-describedby="codeHelp" required /><small id="codeHelp">Escribe los seis dígitos. También se aceptan espacios o guiones.</small><button class="button primary" type="submit">Validar e iniciar</button></form></section>
+}
+else if (e.Status == EvidenceStatus.InProgress)
+{
+    <section class="card challenge-card"><span>RETO PRÁCTICO</span><h2>@(e.AssignedChallenge ?? e.Template.PracticalChallenge)</h2><p>@e.Template.Instructions</p></section>
+    <form asp-action="SubmitActivity" method="post" class="card quiz-card"><input type="hidden" name="evidenceId" value="@e.Id" /><p class="eyebrow">COMPROBACIÓN INDIVIDUAL</p><h2>Responde desde tu cuenta</h2><p>La evidencia se envía una sola vez. Después verás dónde te equivocaste y la explicación correcta.</p>
+    @{ var qn = 0; }
+    @foreach (var q in e.Template.Questions.OrderBy(x => x.Id))
+    {
+        qn++;
+        <fieldset class="question"><legend>@qn. @q.Prompt</legend>
+            <label><input type="radio" name="answers[@q.Id]" value="A" required /> <span>@q.OptionA</span></label>
+            <label><input type="radio" name="answers[@q.Id]" value="B" /> <span>@q.OptionB</span></label>
+            <label><input type="radio" name="answers[@q.Id]" value="C" /> <span>@q.OptionC</span></label>
+            <label><input type="radio" name="answers[@q.Id]" value="D" /> <span>@q.OptionD</span></label>
+        </fieldset>
+    }
+    <button class="button primary full" type="submit">Registrar mis respuestas</button></form>
+}
+else if (e.Status == EvidenceStatus.AwaitingSupervisor)
+{
+    <section class="empty-card"><div class="big-icon">⌛</div><h1>Respuestas registradas</h1><p>Tu puntaje de conocimiento es <strong>@e.KnowledgeScore%</strong>. El supervisor solo debe validar la ejecución práctica desde su cuenta.</p><a class="button secondary" asp-action="Index">Volver al progreso</a></section>
+}
+else if (e.Status == EvidenceStatus.Completed)
+{
+    <section class="result-hero"><div><p class="eyebrow">EVIDENCIA REGISTRADA</p><h1>Resultado: @e.FinalScore%</h1><p>No se requiere un nuevo intento. Este resultado formará parte de tu periodo de prueba.</p></div><div class="score-breakdown"><span>Conocimiento <strong>@e.KnowledgeScore%</strong></span><span>Práctica <strong>@e.PracticalScore%</strong></span></div></section>
+    <section class="card"><h2>Retroalimentación de respuestas</h2><div class="feedback-list">
+    @foreach (var answer in e.Answers.OrderBy(x => x.QuestionId))
+    {
+        var selectedText = answer.SelectedOption switch { "A" => answer.Question.OptionA, "B" => answer.Question.OptionB, "C" => answer.Question.OptionC, "D" => answer.Question.OptionD, _ => "Sin respuesta" };
+        var correctText = answer.Question.CorrectOption switch { "A" => answer.Question.OptionA, "B" => answer.Question.OptionB, "C" => answer.Question.OptionC, "D" => answer.Question.OptionD, _ => "" };
+        <article class="feedback-item @(answer.IsCorrect ? "correct" : "incorrect")"><div class="feedback-title"><span>@(answer.IsCorrect ? "✓" : "×")</span><strong>@answer.Question.Prompt</strong></div><p>Tu respuesta: @selectedText</p>@if(!answer.IsCorrect){<p><strong>Respuesta correcta:</strong> @correctText</p>}<div class="explanation">@answer.Question.Explanation</div></article>
+    }
+    </div></section>
+    <section class="card"><h2>Evaluación práctica</h2>@foreach(var item in e.Rubric){<div class="rubric-result"><span>@item.Criterion</span><strong>@item.Rating.Label()</strong>@if(!string.IsNullOrWhiteSpace(item.Observation)){<small>@item.Observation</small>}</div>}<div class="supervisor-note"><strong>Comentario del supervisor</strong><p>@(string.IsNullOrWhiteSpace(e.SupervisorFeedback) ? "Sin comentario adicional." : e.SupervisorFeedback)</p></div>@if(e.PossibleSharedDevice){<div class="warning-box">Se detectó coincidencia del identificador de dispositivo entre el inicio y la validación. RR. HH. puede revisarlo como indicio, no como prueba concluyente.</div>}</section>
+    <a class="button primary full" asp-action="Index">Continuar con mi ruta</a>
+}
+else if (e.Status == EvidenceStatus.Expired)
+{
+    <section class="empty-card"><div class="big-icon">!</div><h1>Plazo vencido</h1><p>La actividad quedó registrada como vencida. El supervisor o RR. HH. deberá revisar la situación.</p><a class="button secondary" asp-action="Index">Volver</a></section>
+}
+else
+{
+    <section class="empty-card"><div class="big-icon">🔒</div><h1>Actividad todavía bloqueada</h1><p>Se habilitará según tu cronograma y cuando completes la actividad anterior.</p><a class="button secondary" asp-action="Index">Volver</a></section>
+}

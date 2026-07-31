@@ -1,0 +1,125 @@
+using ApparkaTrainingFlowOnline.Data;
+using ApparkaTrainingFlowOnline.Models;
+using ApparkaTrainingFlowOnline.Services;
+using ApparkaTrainingFlowOnline.ViewModels;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography;
+
+namespace ApparkaTrainingFlowOnline.Controllers;
+
+[Authorize(Policy = "HrOrAdmin")]
+public class HrController(
+    AppDbContext db,
+    PasswordService passwords,
+    TrainingScheduleService schedule,
+    CurrentUserService current,
+    AuditService audit,
+    InvitationEmailService invitationEmail,
+    PeruClock clock) : Controller
+{
+    public async Task<IActionResult> Index()
+    {
+        var assignments = await db.TrainingAssignments
+            .Include(x => x.Collaborator).Include(x => x.Supervisor)
+            .Include(x => x.Location).Include(x => x.Position)
+            .Include(x => x.Activities).Include(x => x.FinalExamAttempts)
+            .OrderByDescending(x => x.CreatedAt).ToListAsync();
+        foreach (var assignment in assignments) await schedule.RefreshAssignmentStatusAsync(assignment);
+        return View(assignments);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Create()
+    {
+        var model = new CreateCollaboratorViewModel { AccessFrom = clock.Today.ToDateTime(TimeOnly.MinValue), StartDate = clock.Today.AddDays(3).ToDateTime(TimeOnly.MinValue) };
+        await FillLists(model);
+        return View(model);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Create(CreateCollaboratorViewModel model)
+    {
+        if (model.AccessFrom.Date > model.StartDate.Date)
+            ModelState.AddModelError(nameof(model.AccessFrom), "El acceso previo no puede ser posterior al inicio.");
+        if (await db.Users.AnyAsync(x => x.Email == model.Email.Trim().ToLower()))
+            ModelState.AddModelError(nameof(model.Email), "Ya existe un usuario con este correo.");
+        if (!ModelState.IsValid)
+        {
+            await FillLists(model);
+            return View(model);
+        }
+
+        var user = new AppUser
+        {
+            FullName = model.FullName.Trim(),
+            Email = model.Email.Trim().ToLowerInvariant(),
+            Role = AppRoles.Collaborator,
+            ActivationToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(24)).ToLowerInvariant(),
+            ActivationExpiresAt = DateTimeOffset.UtcNow.AddDays(14),
+            MustChangePassword = true
+        };
+        user.PasswordHash = passwords.Hash(user, Convert.ToHexString(RandomNumberGenerator.GetBytes(16)));
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+
+        var assignment = new TrainingAssignment
+        {
+            CollaboratorId = user.Id,
+            SupervisorId = model.SupervisorId,
+            CreatedById = current.UserId!.Value,
+            LocationId = model.LocationId,
+            PositionId = model.PositionId,
+            AccessFrom = DateOnly.FromDateTime(model.AccessFrom),
+            StartDate = DateOnly.FromDateTime(model.StartDate),
+            EndDate = DateOnly.FromDateTime(model.StartDate.AddDays(20)),
+            Status = DateOnly.FromDateTime(model.StartDate) > clock.Today ? TrainingStatus.Preboarding : TrainingStatus.InTraining
+        };
+        await schedule.GenerateActivitiesAsync(assignment);
+        db.TrainingAssignments.Add(assignment);
+        await db.SaveChangesAsync();
+        await audit.WriteAsync("COLLABORATOR_ASSIGNED", nameof(TrainingAssignment), assignment.Id,
+            $"Periodo creado automáticamente del {assignment.StartDate:dd/MM/yyyy} al {assignment.EndDate:dd/MM/yyyy}.");
+
+        var activationLink = Url.Action("Activate", "Account", new { token = user.ActivationToken }, Request.Scheme) ?? string.Empty;
+        var emailSent = await invitationEmail.SendAsync(user.Email, user.FullName, activationLink, assignment.AccessFrom, assignment.StartDate);
+        TempData["ActivationLink"] = activationLink;
+        TempData["Success"] = emailSent
+            ? "Colaborador registrado, cronograma creado e invitación enviada."
+            : "Colaborador registrado y cronograma creado. Copia el enlace de activación para enviarlo.";
+        return RedirectToAction(nameof(Details), new { id = assignment.Id });
+    }
+
+    public async Task<IActionResult> Details(int id)
+    {
+        var assignment = await db.TrainingAssignments
+            .Include(x => x.Collaborator).Include(x => x.Supervisor)
+            .Include(x => x.Location).Include(x => x.Position)
+            .Include(x => x.Activities).ThenInclude(x => x.Template)
+            .Include(x => x.Activities).ThenInclude(x => x.Answers).ThenInclude(x => x.Question)
+            .Include(x => x.FinalExamAttempts)
+            .FirstOrDefaultAsync(x => x.Id == id);
+        if (assignment is null) return NotFound();
+        await schedule.RefreshAssignmentStatusAsync(assignment);
+        var activityIds = assignment.Activities.Select(x => x.Id.ToString()).ToList();
+        var assignmentId = assignment.Id.ToString();
+        ViewBag.AuditLogs = await db.AuditLogs
+            .Where(x => (x.EntityType == nameof(TrainingAssignment) && x.EntityId == assignmentId)
+                || (x.EntityType == nameof(ActivityEvidence) && activityIds.Contains(x.EntityId)))
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(100)
+            .ToListAsync();
+        return View(assignment);
+    }
+
+    private async Task FillLists(CreateCollaboratorViewModel model)
+    {
+        model.Locations = await db.Locations.Where(x => x.IsActive).Select(x => new SelectListItem(x.Name, x.Id.ToString())).ToListAsync();
+        model.Positions = await db.Positions.Where(x => x.IsActive).Select(x => new SelectListItem(x.Name, x.Id.ToString())).ToListAsync();
+        model.Supervisors = await db.Users.Where(x => x.Role == AppRoles.Supervisor && x.IsActive)
+            .Select(x => new SelectListItem(x.FullName, x.Id.ToString())).ToListAsync();
+    }
+}

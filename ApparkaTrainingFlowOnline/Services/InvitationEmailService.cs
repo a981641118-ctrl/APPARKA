@@ -1,0 +1,47 @@
+using ApparkaTrainingFlowOnline.Models;
+using Microsoft.Extensions.Options;
+using System.Net;
+using System.Net.Mail;
+
+namespace ApparkaTrainingFlowOnline.Services;
+
+public class InvitationEmailService(IOptions<EmailOptions> options, ILogger<InvitationEmailService> logger)
+{
+    private readonly EmailOptions _options = options.Value;
+
+    public async Task<bool> SendAsync(string recipient, string fullName, string activationUrl, DateOnly accessFrom, DateOnly startDate)
+    {
+        if (!_options.IsConfigured) return false;
+        try
+        {
+            using var message = new MailMessage
+            {
+                From = new MailAddress(_options.FromAddress, _options.FromName),
+                Subject = "Acceso a tu periodo de entrenamiento",
+                IsBodyHtml = true,
+                Body = $"""
+                    <h2>Hola, {WebUtility.HtmlEncode(fullName)}</h2>
+                    <p>Has sido registrado en la plataforma de entrenamiento.</p>
+                    <p>Podrás revisar materiales desde el <strong>{accessFrom:dd/MM/yyyy}</strong> y tu periodo operativo inicia el <strong>{startDate:dd/MM/yyyy}</strong>.</p>
+                    <p><a href="{WebUtility.HtmlEncode(activationUrl)}">Activar mi acceso</a></p>
+                    <p>Este enlace es personal y tiene vigencia limitada.</p>
+                    """
+            };
+            message.To.Add(recipient);
+            using var client = new SmtpClient(_options.Host, _options.Port)
+            {
+                EnableSsl = _options.EnableSsl,
+                Credentials = string.IsNullOrWhiteSpace(_options.Username)
+                    ? CredentialCache.DefaultNetworkCredentials
+                    : new NetworkCredential(_options.Username, _options.Password)
+            };
+            await client.SendMailAsync(message);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "No se pudo enviar la invitación a {Recipient}", recipient);
+            return false;
+        }
+    }
+}

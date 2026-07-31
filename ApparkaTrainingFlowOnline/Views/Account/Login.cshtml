@@ -1,0 +1,28 @@
+@model LoginViewModel
+@{ ViewData["Title"] = "Iniciar sesión"; }
+<div class="auth-shell">
+    <section class="auth-card">
+        <div class="auth-brand"><span class="brand-mark large">A</span></div>
+        <p class="eyebrow">APPARKA TRAINING FLOW</p>
+        <h1>Ingresa a tu capacitación</h1>
+        <p class="muted">Acceso seguro desde celular, tablet o computadora.</p>
+        <form asp-action="Login" method="post" class="stack-form">
+            <input asp-for="ReturnUrl" type="hidden" />
+            <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
+            <label asp-for="Email">Correo</label>
+            <input asp-for="Email" autocomplete="username" placeholder="nombre@empresa.com" />
+            <span asp-validation-for="Email"></span>
+            <label asp-for="Password">Contraseña</label>
+            <input asp-for="Password" autocomplete="current-password" placeholder="••••••••" />
+            <span asp-validation-for="Password"></span>
+            <button class="button primary full" type="submit">Ingresar</button>
+        </form>
+        <details class="demo-access">
+            <summary>Credenciales de demostración</summary>
+            <p><strong>Colaborador:</strong> colaborador@demo.local / Colaborador123*</p>
+            <p><strong>Supervisor:</strong> supervisor@demo.local / Supervisor123*</p>
+            <p><strong>RR. HH.:</strong> rrhh@demo.local / Rrhh123*</p>
+            <p><strong>Administrador:</strong> admin@demo.local / Admin123*</p>
+        </details>
+    </section>
+</div>

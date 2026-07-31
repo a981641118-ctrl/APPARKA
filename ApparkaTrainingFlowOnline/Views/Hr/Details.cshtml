@@ -1,0 +1,36 @@
+@inject ApparkaTrainingFlowOnline.Services.PeruClock Clock
+@model TrainingAssignment
+@{ ViewData["Title"] = "Expediente"; var logs = ViewBag.AuditLogs as IReadOnlyList<AuditLog> ?? new List<AuditLog>(); }
+<section class="page-header"><p class="eyebrow">EXPEDIENTE DIGITAL</p><h1>@Model.Collaborator.FullName</h1><p>@Model.Position.Name · @Model.Location.Name</p></section>
+@if (TempData["ActivationLink"] is string link)
+{
+    <section class="card activation-card"><h2>Enlace para enviar al colaborador</h2><p>Permite revisar materiales antes del primer día y crear su contraseña.</p><div class="copy-row"><input id="activationLink" readonly value="@link" /><button class="button secondary" type="button" onclick="copyField('activationLink')">Copiar</button></div></section>
+}
+<section class="stats-grid">
+    <article class="metric"><span>Estado</span><strong>@Model.Status.Label()</strong></article>
+    <article class="metric"><span>Promedio actividades</span><strong>@(Model.OverallActivityScore?.ToString() ?? "—")%</strong></article>
+    <article class="metric"><span>Intentos finales</span><strong>@Model.FinalExamAttempts.Count / 3</strong></article>
+</section>
+<section class="card"><h2>Cronograma automático</h2><div class="timeline-list">
+@foreach (var item in Model.Activities.OrderBy(x => x.Sequence))
+{
+    <div class="timeline-row"><span class="sequence">@item.Sequence</span><div><strong>@item.Template.Title</strong><p>Semana @item.WeekNumber · @Clock.Format(item.AvailableFrom, "dd/MM") al @Clock.Format(item.DueAt, "dd/MM")</p></div><div class="score-cell"><span class="status @item.Status.ToString().ToLowerInvariant()">@item.Status.Label()</span>@if(item.Status==EvidenceStatus.Completed){<small>@item.FinalScore%</small>}</div></div>
+}
+</div></section>
+<section class="card"><h2>Resultado del examen final</h2>
+@if (!Model.FinalExamAttempts.Any()) { <p class="muted">Todavía no se registran intentos.</p> }
+else { foreach (var attempt in Model.FinalExamAttempts.OrderBy(x=>x.AttemptNumber)) { <div class="result-row"><span>Intento @attempt.AttemptNumber</span><strong>@attempt.Score%</strong><span>@(attempt.Passed ? "Aprobado" : "No aprobado")</span></div> } }
+</section>
+
+<section class="card"><div class="section-title"><div><p class="eyebrow">TRAZABILIDAD</p><h2>Historial de acciones</h2></div><span class="count-badge">@logs.Count</span></div>
+@if (!logs.Any()) { <p class="muted">Todavía no existen registros.</p> }
+else
+{
+    <div class="audit-timeline">
+    @foreach (var log in logs)
+    {
+        <div class="audit-entry @log.Severity.ToString().ToLowerInvariant()"><span class="audit-dot"></span><div class="grow"><strong>@log.Action</strong><p>@log.Detail</p><small>@Clock.Format(log.CreatedAt, "dd/MM/yyyy HH:mm:ss") · @log.Actor · @log.Role.RoleLabel()</small></div><span class="status">@log.Severity</span></div>
+    }
+    </div>
+}
+</section>

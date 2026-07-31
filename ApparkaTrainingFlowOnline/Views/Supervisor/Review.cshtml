@@ -1,0 +1,22 @@
+@model SupervisorReviewViewModel
+@{ ViewData["Title"] = "Validar práctica"; }
+<section class="page-header"><p class="eyebrow">VALIDACIÓN INDEPENDIENTE</p><h1>@Model.Evidence.Assignment.Collaborator.FullName</h1><p>@Model.Evidence.Template.Title</p></section>
+<section class="card challenge-card"><span>RETO PRÁCTICO ASIGNADO</span><h2>@(Model.Evidence.AssignedChallenge ?? Model.Evidence.Template.PracticalChallenge)</h2><p>El colaborador ya respondió el cuestionario con @Model.Evidence.KnowledgeScore%. Evalúa la ejecución observada; no vuelvas a realizarle las preguntas.</p></section>
+<form asp-action="Review" method="post" class="card form-card">
+    <input asp-for="EvidenceId" type="hidden" />
+    <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
+    @for (var i = 0; i < Model.Items.Count; i++)
+    {
+        <div class="rubric-row">
+            <input asp-for="Items[i].Criterion" type="hidden" />
+            <input asp-for="Items[i].IsCritical" type="hidden" />
+            <div><strong>@Model.Items[i].Criterion</strong>@if(Model.Items[i].IsCritical){<span class="critical">Crítico</span>}</div>
+            <select asp-for="Items[i].Rating" asp-items="Html.GetEnumSelectList<RatingValue>()"></select>
+            <textarea asp-for="Items[i].Observation" placeholder="Observación obligatoria si no cumple totalmente"></textarea>
+        </div>
+    }
+    <label asp-for="Feedback">Retroalimentación final</label>
+    <textarea asp-for="Feedback" rows="4" placeholder="Indica fortalezas y aspectos que debe recordar para el examen final."></textarea>
+    <div class="info-box"><strong>Esta evidencia no tiene reintento</strong><p>Al guardar, se registrarán el porcentaje y los errores. El examen final será la única etapa con hasta tres intentos.</p></div>
+    <div class="form-actions"><a class="button ghost" asp-action="Dashboard">Cancelar</a><button class="button primary" type="submit">Cerrar evidencia</button></div>
+</form>

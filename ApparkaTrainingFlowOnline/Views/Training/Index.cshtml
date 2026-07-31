@@ -1,0 +1,65 @@
+@inject ApparkaTrainingFlowOnline.Services.PeruClock Clock
+@model TrainingAssignment
+@{ ViewData["Title"] = "Mi entrenamiento"; var materials = ViewBag.Materials as IReadOnlyList<LearningMaterial> ?? new List<LearningMaterial>(); var completedMaterials = ViewBag.CompletedMaterials as IReadOnlyList<int> ?? new List<int>(); var today = ViewBag.Today is DateOnly date ? date : DateOnly.FromDateTime(DateTime.UtcNow.AddHours(-5)); var completed = Model.Activities.Count(x => x.Status == EvidenceStatus.Completed); var progress = completed * 100 / 6; }
+<section class="hero-card">
+    <div><p class="eyebrow">PERIODO DE PRUEBA</p><h1>Hola, @Model.Collaborator.FullName.Split(' ')[0]</h1><p>@Model.Position.Name · @Model.Location.Name</p></div>
+    <div class="progress-ring" style="--progress:@progress"><strong>@progress%</strong><span>avance</span></div>
+</section>
+@if (today < Model.StartDate)
+{
+    <section class="card preboarding-banner"><div class="big-icon">▻</div><div><p class="eyebrow">ANTES DE TU PRIMER DÍA</p><h2>Prepárate desde ahora</h2><p>Tu entrenamiento operativo inicia el @Model.StartDate.ToString("dd/MM/yyyy"). Por ahora revisa el contenido de estudio.</p></div></section>
+}
+@{
+    var resume = Model.Activities.FirstOrDefault(x => x.Status is EvidenceStatus.InProgress or EvidenceStatus.AwaitingSupervisor);
+}
+@if (resume is not null)
+{
+    <section class="card resume-card"><div><span class="status inprogress">Actividad no terminada</span><h2>@resume.Template.Title</h2><p>@(resume.Status == EvidenceStatus.AwaitingSupervisor ? "Ya respondiste. Falta la validación práctica del supervisor." : "Puedes continuar desde donde quedaste.")</p></div><a class="button primary" asp-action="Activity" asp-route-id="@resume.Id">Retomar</a></section>
+}
+<section class="section-block"><div class="section-title"><div><p class="eyebrow">RUTA DE APRENDIZAJE</p><h2>Tres semanas · seis evidencias</h2></div><span class="count-badge">@completed/6</span></div>
+@for (var week = 1; week <= 3; week++)
+{
+    <div class="week-block"><h3>Semana @week</h3><div class="activity-grid">
+    @foreach (var item in Model.Activities.Where(x => x.WeekNumber == week).OrderBy(x => x.Sequence))
+    {
+        <article class="activity-card @item.Status.ToString().ToLowerInvariant()">
+            <div class="activity-number">@item.Sequence</div>
+            <div class="grow"><span class="status @item.Status.ToString().ToLowerInvariant()">@item.Status.Label()</span><h4>@item.Template.Title</h4><p>@Clock.Format(item.AvailableFrom, "dd/MM") – @Clock.Format(item.DueAt, "dd/MM")</p>@if(item.Status==EvidenceStatus.Completed){<strong class="score">Resultado: @item.FinalScore%</strong>}</div>
+            @if (item.Status is EvidenceStatus.Available or EvidenceStatus.InProgress or EvidenceStatus.AwaitingSupervisor or EvidenceStatus.Completed)
+            { <a class="round-link" asp-action="Activity" asp-route-id="@item.Id" aria-label="Abrir actividad">›</a> }
+            else { <span class="lock">🔒</span> }
+        </article>
+    }
+    </div></div>
+}
+</section>
+<section class="section-block"><div class="section-title"><div><p class="eyebrow">MATERIAL PREVIO</p><h2>Información para estudiar</h2></div></div><div class="card-grid">
+@foreach (var material in materials)
+{
+    var materialDone = completedMaterials.Contains(material.Id);
+    <article class="card material-card"><div class="material-icon">@(materialDone ? "✓" : "▶")</div><div class="grow"><h3>@material.Title</h3><p>@material.Summary</p>@if(!string.IsNullOrWhiteSpace(material.VideoUrl)){<a href="@material.VideoUrl" target="_blank" rel="noopener">Ver contenido</a>}@if(materialDone){<span class="status completed">Estudiado</span>}else{<form asp-action="CompleteMaterial" method="post"><input type="hidden" name="materialId" value="@material.Id" /><button class="button secondary" type="submit">Marcar como estudiado</button></form>}</div></article>
+}
+</div></section>
+<section class="card final-card">
+    <div><p class="eyebrow">EVALUACIÓN FINAL</p><h2>Examen de aptitud</h2><p>Se habilita al completar las seis evidencias. Puntaje mínimo: 80%. Máximo: tres intentos.</p><div class="attempt-dots">@for(var i=1;i<=3;i++){<span class="@(Model.FinalExamAttempts.Count>=i ? "used" : "")">@i</span>}</div></div>
+    <div class="final-actions">
+    @if (Model.FinalExamAttempts.Any(x => x.CompletedAt != null))
+    {
+        <div class="attempt-history">
+        @foreach (var attempt in Model.FinalExamAttempts.Where(x => x.CompletedAt != null).OrderBy(x => x.AttemptNumber))
+        {
+            <span>Intento @attempt.AttemptNumber: <strong>@attempt.Score%</strong> · @(attempt.Passed ? "Aprobado" : "No aprobado")</span>
+        }
+        </div>
+    }
+    @if (Model.Status == TrainingStatus.ReadyForFinalExam)
+    {
+        var activeAttempt = Model.FinalExamAttempts.FirstOrDefault(x => x.CompletedAt == null);
+        if (activeAttempt is not null) { <a class="button primary" asp-action="FinalExam" asp-route-attemptId="@activeAttempt.Id">Continuar examen</a> }
+        else if (Model.FinalExamAttempts.Count < 3) { <form asp-action="StartFinalExam" method="post"><input type="hidden" name="assignmentId" value="@Model.Id" /><button class="button primary" type="submit">Iniciar intento @(Model.FinalExamAttempts.Count + 1)</button></form> }
+    }
+    else if (Model.Status == TrainingStatus.Apt) { <span class="final-result apt">APTO</span> }
+    else if (Model.Status == TrainingStatus.NotApt) { <span class="final-result notapt">NO APTO</span> }
+    else { <span class="status scheduled">Bloqueado</span> }
+    </div>
+</section>

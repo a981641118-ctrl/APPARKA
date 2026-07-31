@@ -1,0 +1,20 @@
+@model IReadOnlyList<TrainingAssignment>
+@{ ViewData["Title"] = "Periodos de prueba"; }
+<section class="page-header split-header">
+    <div><p class="eyebrow">RECURSOS HUMANOS</p><h1>Periodos de prueba</h1><p>Registro, fechas automáticas y resultado final por colaborador.</p></div>
+    <a class="button primary" asp-action="Create">+ Nuevo colaborador</a>
+</section>
+<section class="card-grid">
+@foreach (var item in Model)
+{
+    var completed = item.Activities.Count(x => x.Status == EvidenceStatus.Completed);
+    <article class="card person-card">
+        <div class="card-top"><div class="avatar">@string.Concat(item.Collaborator.FullName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(x => x[0]))</div><span class="status @item.Status.ToString().ToLowerInvariant()">@item.Status.Label()</span></div>
+        <h2>@item.Collaborator.FullName</h2>
+        <p class="muted">@item.Position.Name · @item.Location.Name</p>
+        <div class="progress"><span style="@($"width:{completed * 100 / 6}%")"></span></div>
+        <div class="meta-row"><span>@completed/6 evidencias</span><span>@item.StartDate.ToString("dd/MM") – @item.EndDate.ToString("dd/MM")</span></div>
+        <a class="button secondary full" asp-action="Details" asp-route-id="@item.Id">Ver expediente</a>
+    </article>
+}
+</section>

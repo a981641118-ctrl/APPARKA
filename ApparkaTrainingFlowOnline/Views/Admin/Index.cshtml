@@ -1,0 +1,5 @@
+@model IReadOnlyList<AppUser>
+@{ ViewData["Title"] = "Administración"; }
+<section class="page-header"><p class="eyebrow">ADMINISTRACIÓN</p><h1>Control general</h1><p>Usuarios, roles y métricas del sistema.</p></section>
+<section class="stats-grid"><article class="metric"><span>Usuarios</span><strong>@ViewBag.UserCount</strong></article><article class="metric"><span>Periodos</span><strong>@ViewBag.AssignmentCount</strong></article><article class="metric"><span>Evidencias cerradas</span><strong>@ViewBag.CompletedCount</strong></article><article class="metric"><span>Alertas</span><strong>@ViewBag.WarningCount</strong></article></section>
+<section class="card"><h2>Usuarios y roles</h2><div class="responsive-table"><table><thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th></tr></thead><tbody>@foreach(var user in Model){<tr><td>@user.FullName</td><td>@user.Email</td><td><span class="role-pill">@user.Role.RoleLabel()</span></td><td>@(user.IsActive ? "Activo" : "Inactivo")</td></tr>}</tbody></table></div></section>

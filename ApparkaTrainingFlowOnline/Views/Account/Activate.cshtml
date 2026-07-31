@@ -1,0 +1,20 @@
+@model ActivateViewModel
+@{ ViewData["Title"] = "Activar cuenta"; }
+<div class="auth-shell">
+    <section class="auth-card">
+        <p class="eyebrow">ACCESO PREVIO</p>
+        <h1>Activa tu cuenta</h1>
+        <p class="muted">Crea una contraseña para revisar tus materiales antes del primer día.</p>
+        <form asp-action="Activate" method="post" class="stack-form">
+            <input asp-for="Token" type="hidden" />
+            <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
+            <label asp-for="Password">Nueva contraseña</label>
+            <input asp-for="Password" />
+            <span asp-validation-for="Password"></span>
+            <label asp-for="ConfirmPassword">Confirmar contraseña</label>
+            <input asp-for="ConfirmPassword" />
+            <span asp-validation-for="ConfirmPassword"></span>
+            <button class="button primary full" type="submit">Activar acceso</button>
+        </form>
+    </section>
+</div>

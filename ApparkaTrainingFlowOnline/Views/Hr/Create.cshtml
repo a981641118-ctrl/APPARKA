@@ -1,0 +1,17 @@
+@model CreateCollaboratorViewModel
+@{ ViewData["Title"] = "Nuevo colaborador"; }
+<section class="page-header"><p class="eyebrow">ALTA Y PROGRAMACIÓN</p><h1>Registrar nuevo colaborador</h1><p>El sistema generará seis actividades distribuidas automáticamente en 21 días.</p></section>
+<form asp-action="Create" method="post" class="card form-card">
+    <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
+    <div class="form-grid">
+        <div><label asp-for="FullName">Nombre completo</label><input asp-for="FullName" /><span asp-validation-for="FullName"></span></div>
+        <div><label asp-for="Email">Correo personal o corporativo</label><input asp-for="Email" /><span asp-validation-for="Email"></span></div>
+        <div><label asp-for="LocationId">Sede</label><select asp-for="LocationId" asp-items="Model.Locations"><option value="">Seleccionar</option></select></div>
+        <div><label asp-for="PositionId">Puesto</label><select asp-for="PositionId" asp-items="Model.Positions"><option value="">Seleccionar</option></select></div>
+        <div><label asp-for="SupervisorId">Supervisor responsable</label><select asp-for="SupervisorId" asp-items="Model.Supervisors"><option value="">Seleccionar</option></select></div>
+        <div><label asp-for="AccessFrom">Acceso a materiales desde</label><input asp-for="AccessFrom" /><span asp-validation-for="AccessFrom"></span></div>
+        <div><label asp-for="StartDate">Primer día de trabajo</label><input asp-for="StartDate" /><span asp-validation-for="StartDate"></span></div>
+    </div>
+    <div class="info-box"><strong>Programación automática</strong><p>Semana 1: días 1–7 · Semana 2: días 8–14 · Semana 3: días 15–21. Cada semana contiene dos evidencias con plazo propio.</p></div>
+    <div class="form-actions"><a class="button ghost" asp-action="Index">Cancelar</a><button class="button primary" type="submit">Crear periodo de prueba</button></div>
+</form>

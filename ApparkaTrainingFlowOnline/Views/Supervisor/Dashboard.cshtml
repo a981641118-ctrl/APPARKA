@@ -1,0 +1,59 @@
+@inject ApparkaTrainingFlowOnline.Services.PeruClock Clock
+@model IReadOnlyList<TrainingAssignment>
+@{ ViewData["Title"] = "Supervisión"; }
+<section class="page-header"><p class="eyebrow">GESTIÓN POR EXCEPCIÓN</p><h1>Panel del supervisor</h1><p>Genera el código de inicio y valida únicamente actividades prácticas pendientes.</p></section>
+@if (TempData["ValidationCode"] is string code)
+{
+    var expiresAt = TempData["ValidationCodeExpiresAt"] as string;
+    var codeEvidenceId = TempData["ValidationCodeEvidenceId"];
+    <section class="code-modal-card" aria-live="polite">
+        <p>CÓDIGO TEMPORAL</p>
+        <div class="generated-code-row">
+            <input id="generatedValidationCode" value="@code" readonly aria-label="Código temporal generado" />
+            <button class="button secondary" type="button" onclick="copyField('generatedValidationCode')">Copiar</button>
+        </div>
+        <span>Actividad: @codeEvidenceId · Un solo uso.</span>
+        @if (!string.IsNullOrWhiteSpace(expiresAt))
+        {
+            <span>Vence el @expiresAt (hora de Lima).</span>
+        }
+        <small>Al generar otro código para esta misma actividad, el anterior queda invalidado.</small>
+    </section>
+}
+@{
+    var pending = Model.SelectMany(a => a.Activities.Select(e => new { Assignment = a, Evidence = e }))
+        .Where(x => x.Evidence.Status == EvidenceStatus.AwaitingSupervisor).ToList();
+    var startable = Model.SelectMany(a => a.Activities.Select(e => new { Assignment = a, Evidence = e }))
+        .Where(x => x.Evidence.Status == EvidenceStatus.Available).ToList();
+}
+<section class="stats-grid">
+    <article class="metric"><span>Colaboradores activos</span><strong>@Model.Count(x => x.Status is TrainingStatus.Preboarding or TrainingStatus.InTraining or TrainingStatus.ReadyForFinalExam)</strong></article>
+    <article class="metric"><span>Pendientes de validar</span><strong>@pending.Count</strong></article>
+    <article class="metric"><span>Listos para iniciar</span><strong>@startable.Count</strong></article>
+</section>
+@if (pending.Any())
+{
+    <section class="section-block"><div class="section-title"><div><p class="eyebrow">REQUIEREN ACCIÓN</p><h2>Validaciones pendientes</h2></div><span class="count-badge">@pending.Count</span></div>
+    <div class="card-grid">
+    @foreach (var row in pending)
+    {
+        <article class="card action-card"><span class="status awaiting">Pendiente</span><h3>@row.Assignment.Collaborator.FullName</h3><p>@row.Evidence.Template.Title</p><div class="meta-row"><span>Conocimiento: @row.Evidence.KnowledgeScore%</span><span>@row.Assignment.Location.Name</span></div><a class="button primary full" asp-action="Review" asp-route-id="@row.Evidence.Id">Validar práctica</a></article>
+    }
+    </div></section>
+}
+<section class="section-block"><div class="section-title"><div><p class="eyebrow">INICIO CONTROLADO</p><h2>Generar código temporal</h2></div></div>
+<div class="card-grid">
+@foreach (var row in startable)
+{
+    <article class="card action-card"><span class="status available">Disponible</span><h3>@row.Assignment.Collaborator.FullName</h3><p>@row.Evidence.Template.Title</p><small>Plazo: @Clock.Format(row.Evidence.DueAt)</small><form asp-action="GenerateCode" method="post"><input type="hidden" name="evidenceId" value="@row.Evidence.Id" /><button class="button secondary full" type="submit">Generar código de un uso</button></form></article>
+}
+@if (!startable.Any()) { <div class="card empty-inline">No existen actividades disponibles para iniciar.</div> }
+</div></section>
+<section class="section-block"><div class="section-title"><div><p class="eyebrow">RESUMEN</p><h2>Todos los periodos</h2></div></div>
+<div class="list-card">
+@foreach (var assignment in Model)
+{
+    var completed = assignment.Activities.Count(x => x.Status == EvidenceStatus.Completed);
+    <div class="person-row"><div class="avatar">@assignment.Collaborator.FullName[0]</div><div class="grow"><strong>@assignment.Collaborator.FullName</strong><p>@assignment.Location.Name · @completed/6 evidencias</p><div class="progress"><span style="@($"width:{completed * 100 / 6}%")"></span></div></div><span class="status @assignment.Status.ToString().ToLowerInvariant()">@assignment.Status.Label()</span></div>
+}
+</div></section>
