@@ -4,9 +4,23 @@ using ApparkaTrainingFlowOnline.Models;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.DataProtection;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.AddDebug();
+
+var dataProtection = builder.Services.AddDataProtection()
+    .SetApplicationName("ApparkaTrainingFlowOnline");
+var dataProtectionKeysPath = builder.Configuration["DATA_PROTECTION_KEYS_PATH"];
+if (!string.IsNullOrWhiteSpace(dataProtectionKeysPath))
+{
+    Directory.CreateDirectory(dataProtectionKeysPath);
+    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath));
+}
 
 var postgresConnection = builder.Configuration["POSTGRES_CONNECTION"]
     ?? builder.Configuration.GetConnectionString("DefaultConnection")

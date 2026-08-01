@@ -1,0 +1,64 @@
+@model LearningMaterialPageViewModel
+@{
+    ViewData["Title"] = Model.Material.Title;
+    var steps = Model.Content.Sections;
+}
+
+<section class="page-header learning-header">
+    <a class="back-link" asp-action="Index">‹ Volver a mi entrenamiento</a>
+    <p class="eyebrow">MÓDULO @Model.Material.SortOrder · @Model.Material.EstimatedMinutes MINUTOS</p>
+    <h1>@Model.Material.Title</h1>
+    <p>@Model.Material.Summary</p>
+</section>
+
+<section class="learning-shell" data-learning-module>
+    <div class="learning-progress" aria-label="Progreso del módulo">
+        <span data-learning-progress></span>
+    </div>
+    <div class="learning-counter"><span data-learning-current>1</span> de <span data-learning-total>@(steps.Count + 1)</span></div>
+
+    <article class="card learning-step active" data-learning-step>
+        <div class="learning-step-icon">@Model.Material.SortOrder</div>
+        <p class="eyebrow">IDEA PRINCIPAL</p>
+        <h2>Antes de comenzar</h2>
+        <p class="learning-lead">@Model.Content.Introduction</p>
+        <div class="info-box"><strong>Tu objetivo</strong><p>Comprender este contenido y relacionarlo con las situaciones reales de tu puesto.</p></div>
+    </article>
+
+    @foreach (var contentSection in steps)
+    {
+        <article class="card learning-step" data-learning-step hidden>
+            <div class="learning-step-heading">
+                <div>
+                    @if (contentSection.IsInferred) { <span class="inferred-badge">Orientación formativa</span> }
+                    <h2>@contentSection.Title</h2>
+                </div>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(contentSection.Body)) { <p class="learning-lead">@contentSection.Body</p> }
+            @if (contentSection.Items.Count > 0)
+            {
+                <ul class="learning-checklist">
+                @foreach (var item in contentSection.Items) { <li><span>✓</span><p>@item</p></li> }
+                </ul>
+            }
+            @if (contentSection.IsInferred)
+            {
+                <div class="warning-box"><strong>Importante</strong><p>Esta secuencia es una orientación para el entrenamiento. Debe adaptarse al procedimiento oficial de la sede.</p></div>
+            }
+        </article>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(Model.Content.ConfirmationNote))
+    {
+        <div class="confirmation-note"><strong>Contenido sujeto a confirmación interna</strong><p>@Model.Content.ConfirmationNote</p></div>
+    }
+
+    <div class="learning-navigation">
+        <button class="button ghost" type="button" data-learning-previous disabled>Anterior</button>
+        <button class="button primary" type="button" data-learning-next>Siguiente</button>
+        <form asp-action="CompleteMaterial" method="post" data-learning-complete hidden>
+            <input type="hidden" name="materialId" value="@Model.Material.Id" />
+            <button class="button primary" type="submit">@(Model.IsCompleted ? "Finalizar repaso" : "Completar módulo")</button>
+        </form>
+    </div>
+</section>

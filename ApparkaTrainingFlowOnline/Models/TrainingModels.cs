@@ -66,6 +66,7 @@ public class ActivityEvidence
     public bool PossibleSharedDevice { get; set; }
     [MaxLength(1000)] public string? SupervisorFeedback { get; set; }
     public ICollection<ActivityAnswer> Answers { get; set; } = [];
+    public ICollection<ActivityQuestionSelection> QuestionSelections { get; set; } = [];
     public ICollection<RubricEvaluation> Rubric { get; set; } = [];
     public ICollection<ValidationSession> ValidationSessions { get; set; } = [];
 }
@@ -73,6 +74,7 @@ public class ActivityEvidence
 public class Question
 {
     public int Id { get; set; }
+    [MaxLength(80)] public string? ContentKey { get; set; }
     public int? ActivityTemplateId { get; set; }
     public ActivityTemplate? ActivityTemplate { get; set; }
     public bool IsFinalExamQuestion { get; set; }
@@ -83,6 +85,19 @@ public class Question
     [Required, MaxLength(300)] public string OptionD { get; set; } = string.Empty;
     [Required, MaxLength(1)] public string CorrectOption { get; set; } = "A";
     [Required, MaxLength(1000)] public string Explanation { get; set; } = string.Empty;
+    [Required, MaxLength(300)] public string ReviewTopic { get; set; } = string.Empty;
+    public bool IsActive { get; set; } = true;
+}
+
+public class ActivityQuestionSelection
+{
+    public int Id { get; set; }
+    public int EvidenceId { get; set; }
+    public ActivityEvidence Evidence { get; set; } = null!;
+    public int QuestionId { get; set; }
+    public Question Question { get; set; } = null!;
+    public int DisplayOrder { get; set; }
+    [Required, MaxLength(4)] public string OptionOrder { get; set; } = "ABCD";
 }
 
 public class ActivityAnswer
@@ -143,6 +158,8 @@ public class FinalExamAnswer
     public Question Question { get; set; } = null!;
     [MaxLength(1)] public string SelectedOption { get; set; } = string.Empty;
     public bool IsCorrect { get; set; }
+    public int DisplayOrder { get; set; }
+    [Required, MaxLength(4)] public string OptionOrder { get; set; } = "ABCD";
 }
 
 public class LearningMaterial
@@ -152,8 +169,11 @@ public class LearningMaterial
     public Position Position { get; set; } = null!;
     [Required, MaxLength(160)] public string Title { get; set; } = string.Empty;
     [Required, MaxLength(1500)] public string Summary { get; set; } = string.Empty;
+    [Required] public string ContentJson { get; set; } = "{}";
     [MaxLength(500)] public string? VideoUrl { get; set; }
     public int SortOrder { get; set; }
+    public int EstimatedMinutes { get; set; } = 5;
+    public bool IsActive { get; set; } = true;
 }
 
 public class LearningMaterialProgress

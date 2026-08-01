@@ -12,14 +12,14 @@ else if (e.Status == EvidenceStatus.InProgress)
     <section class="card challenge-card"><span>RETO PRÁCTICO</span><h2>@(e.AssignedChallenge ?? e.Template.PracticalChallenge)</h2><p>@e.Template.Instructions</p></section>
     <form asp-action="SubmitActivity" method="post" class="card quiz-card"><input type="hidden" name="evidenceId" value="@e.Id" /><p class="eyebrow">COMPROBACIÓN INDIVIDUAL</p><h2>Responde desde tu cuenta</h2><p>La evidencia se envía una sola vez. Después verás dónde te equivocaste y la explicación correcta.</p>
     @{ var qn = 0; }
-    @foreach (var q in e.Template.Questions.OrderBy(x => x.Id))
+    @foreach (var q in Model.Questions)
     {
         qn++;
         <fieldset class="question"><legend>@qn. @q.Prompt</legend>
-            <label><input type="radio" name="answers[@q.Id]" value="A" required /> <span>@q.OptionA</span></label>
-            <label><input type="radio" name="answers[@q.Id]" value="B" /> <span>@q.OptionB</span></label>
-            <label><input type="radio" name="answers[@q.Id]" value="C" /> <span>@q.OptionC</span></label>
-            <label><input type="radio" name="answers[@q.Id]" value="D" /> <span>@q.OptionD</span></label>
+            @foreach (var option in q.Options)
+            {
+                <label><input type="radio" name="answers[@q.QuestionId]" value="@option.Key" required /> <span>@option.Text</span></label>
+            }
         </fieldset>
     }
     <button class="button primary full" type="submit">Registrar mis respuestas</button></form>
@@ -32,11 +32,13 @@ else if (e.Status == EvidenceStatus.Completed)
 {
     <section class="result-hero"><div><p class="eyebrow">EVIDENCIA REGISTRADA</p><h1>Resultado: @e.FinalScore%</h1><p>No se requiere un nuevo intento. Este resultado formará parte de tu periodo de prueba.</p></div><div class="score-breakdown"><span>Conocimiento <strong>@e.KnowledgeScore%</strong></span><span>Práctica <strong>@e.PracticalScore%</strong></span></div></section>
     <section class="card"><h2>Retroalimentación de respuestas</h2><div class="feedback-list">
-    @foreach (var answer in e.Answers.OrderBy(x => x.QuestionId))
+    @foreach (var selection in e.QuestionSelections.OrderBy(x => x.DisplayOrder))
     {
+        var answer = e.Answers.FirstOrDefault(x => x.QuestionId == selection.QuestionId);
+        if (answer is null) continue;
         var selectedText = answer.SelectedOption switch { "A" => answer.Question.OptionA, "B" => answer.Question.OptionB, "C" => answer.Question.OptionC, "D" => answer.Question.OptionD, _ => "Sin respuesta" };
         var correctText = answer.Question.CorrectOption switch { "A" => answer.Question.OptionA, "B" => answer.Question.OptionB, "C" => answer.Question.OptionC, "D" => answer.Question.OptionD, _ => "" };
-        <article class="feedback-item @(answer.IsCorrect ? "correct" : "incorrect")"><div class="feedback-title"><span>@(answer.IsCorrect ? "✓" : "×")</span><strong>@answer.Question.Prompt</strong></div><p>Tu respuesta: @selectedText</p>@if(!answer.IsCorrect){<p><strong>Respuesta correcta:</strong> @correctText</p>}<div class="explanation">@answer.Question.Explanation</div></article>
+        <article class="feedback-item @(answer.IsCorrect ? "correct" : "incorrect")"><div class="feedback-title"><span>@(answer.IsCorrect ? "✓" : "×")</span><strong>@answer.Question.Prompt</strong></div><p>Tu respuesta: @selectedText</p>@if(!answer.IsCorrect){<p><strong>Respuesta correcta:</strong> @correctText</p>}<div class="explanation"><strong>¿Por qué?</strong> @answer.Question.Explanation</div>@if(!answer.IsCorrect && !string.IsNullOrWhiteSpace(answer.Question.ReviewTopic)){<div class="review-topic"><strong>Tema por repasar</strong><span>@answer.Question.ReviewTopic</span></div>}</article>
     }
     </div></section>
     <section class="card"><h2>Evaluación práctica</h2>@foreach(var item in e.Rubric){<div class="rubric-result"><span>@item.Criterion</span><strong>@item.Rating.Label()</strong>@if(!string.IsNullOrWhiteSpace(item.Observation)){<small>@item.Observation</small>}</div>}<div class="supervisor-note"><strong>Comentario del supervisor</strong><p>@(string.IsNullOrWhiteSpace(e.SupervisorFeedback) ? "Sin comentario adicional." : e.SupervisorFeedback)</p></div>@if(e.PossibleSharedDevice){<div class="warning-box">Se detectó coincidencia del identificador de dispositivo entre el inicio y la validación. RR. HH. puede revisarlo como indicio, no como prueba concluyente.</div>}</section>

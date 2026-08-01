@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace ApparkaTrainingFlowOnline.Controllers;
 
@@ -29,7 +30,7 @@ public class TrainingController(
         if (assignment is null) return View("NoAssignment");
         if (clock.Today < assignment.AccessFrom) return View("AccessPending", assignment);
         await schedule.RefreshAssignmentStatusAsync(assignment);
-        ViewBag.Materials = await db.LearningMaterials.Where(x => x.PositionId == assignment.PositionId).OrderBy(x => x.SortOrder).ToListAsync();
+        ViewBag.Materials = await db.LearningMaterials.Where(x => x.PositionId == assignment.PositionId && x.IsActive).OrderBy(x => x.SortOrder).ToListAsync();
         ViewBag.CompletedMaterials = await db.LearningMaterialProgress.Where(x => x.UserId == current.UserId).Select(x => x.MaterialId).ToListAsync();
         ViewBag.Today = clock.Today;
         return View(assignment);
@@ -43,7 +44,7 @@ public class TrainingController(
         var userId = current.UserId!.Value;
         var assignment = await db.TrainingAssignments.FirstOrDefaultAsync(x => x.CollaboratorId == userId);
         if (assignment is null || clock.Today < assignment.AccessFrom) return Forbid();
-        var material = await db.LearningMaterials.FirstOrDefaultAsync(x => x.Id == materialId && x.PositionId == assignment.PositionId);
+        var material = await db.LearningMaterials.FirstOrDefaultAsync(x => x.Id == materialId && x.PositionId == assignment.PositionId && x.IsActive);
         if (material is null) return NotFound();
         if (!await db.LearningMaterialProgress.AnyAsync(x => x.UserId == userId && x.MaterialId == materialId))
         {
@@ -55,11 +56,50 @@ public class TrainingController(
     }
 
     [HttpGet]
+    public async Task<IActionResult> Material(int id)
+    {
+        var userId = current.UserId!.Value;
+        var assignment = await db.TrainingAssignments
+            .OrderByDescending(x => x.CreatedAt)
+            .FirstOrDefaultAsync(x => x.CollaboratorId == userId);
+        if (assignment is null || clock.Today < assignment.AccessFrom) return Forbid();
+
+        var material = await db.LearningMaterials
+            .FirstOrDefaultAsync(x => x.Id == id && x.PositionId == assignment.PositionId && x.IsActive);
+        if (material is null) return NotFound();
+
+        LearningModuleContent content;
+        try
+        {
+            content = JsonSerializer.Deserialize<LearningModuleContent>(material.ContentJson) ?? new();
+        }
+        catch (JsonException)
+        {
+            content = new LearningModuleContent { Introduction = material.Summary };
+        }
+
+        return View(new LearningMaterialPageViewModel
+        {
+            Material = material,
+            Content = content,
+            IsCompleted = await db.LearningMaterialProgress
+                .AnyAsync(x => x.UserId == userId && x.MaterialId == material.Id)
+        });
+    }
+
+    [HttpGet]
     public async Task<IActionResult> Activity(int id)
     {
         var evidence = await LoadEvidence(id);
         if (evidence is null || evidence.Assignment.CollaboratorId != current.UserId) return NotFound();
-        return View(new ActivityPageViewModel { Evidence = evidence });
+        return View(new ActivityPageViewModel
+        {
+            Evidence = evidence,
+            Questions = evidence.QuestionSelections
+                .OrderBy(x => x.DisplayOrder)
+                .Select(x => QuestionPresentationFactory.Create(x.Question, x.OptionOrder))
+                .ToList()
+        });
     }
 
     [HttpPost]
@@ -100,7 +140,14 @@ public class TrainingController(
             .Include(x => x.Answers).ThenInclude(x => x.Question)
             .FirstOrDefaultAsync(x => x.Id == attemptId && x.Assignment.CollaboratorId == current.UserId);
         if (attempt is null) return NotFound();
-        return View(new FinalExamViewModel { Attempt = attempt });
+        return View(new FinalExamViewModel
+        {
+            Attempt = attempt,
+            Questions = attempt.Answers
+                .OrderBy(x => x.DisplayOrder)
+                .Select(x => QuestionPresentationFactory.Create(x.Question, x.OptionOrder))
+                .ToList()
+        });
     }
 
     [HttpPost]
@@ -115,6 +162,7 @@ public class TrainingController(
     private Task<ActivityEvidence?> LoadEvidence(int id) => db.ActivityEvidences
         .Include(x => x.Assignment).ThenInclude(x => x.Supervisor)
         .Include(x => x.Template).ThenInclude(x => x.Questions)
+        .Include(x => x.QuestionSelections).ThenInclude(x => x.Question)
         .Include(x => x.Answers).ThenInclude(x => x.Question)
         .Include(x => x.Rubric)
         .FirstOrDefaultAsync(x => x.Id == id);

@@ -37,7 +37,7 @@
 @foreach (var material in materials)
 {
     var materialDone = completedMaterials.Contains(material.Id);
-    <article class="card material-card"><div class="material-icon">@(materialDone ? "✓" : "▶")</div><div class="grow"><h3>@material.Title</h3><p>@material.Summary</p>@if(!string.IsNullOrWhiteSpace(material.VideoUrl)){<a href="@material.VideoUrl" target="_blank" rel="noopener">Ver contenido</a>}@if(materialDone){<span class="status completed">Estudiado</span>}else{<form asp-action="CompleteMaterial" method="post"><input type="hidden" name="materialId" value="@material.Id" /><button class="button secondary" type="submit">Marcar como estudiado</button></form>}</div></article>
+    <article class="card material-card"><div class="material-icon">@(materialDone ? "✓" : material.SortOrder)</div><div class="grow"><div class="material-meta"><span>Módulo @material.SortOrder</span><span>@material.EstimatedMinutes min</span></div><h3>@material.Title</h3><p>@material.Summary</p><div class="material-actions">@if(materialDone){<span class="status completed">Estudiado</span>}<a class="button secondary" asp-action="Material" asp-route-id="@material.Id">@(materialDone ? "Repasar módulo" : "Comenzar módulo")</a></div></div></article>
 }
 </div></section>
 <section class="card final-card">

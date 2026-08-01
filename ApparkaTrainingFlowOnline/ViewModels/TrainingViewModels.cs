@@ -7,6 +7,7 @@ public class ActivityPageViewModel
     public ActivityEvidence Evidence { get; set; } = null!;
     public string? OneTimeCode { get; set; }
     public Dictionary<int, string> Answers { get; set; } = [];
+    public List<QuestionPresentationViewModel> Questions { get; set; } = [];
 }
 
 public class SupervisorReviewViewModel
@@ -29,4 +30,25 @@ public class FinalExamViewModel
 {
     public FinalExamAttempt Attempt { get; set; } = null!;
     public Dictionary<int, string> Answers { get; set; } = [];
+    public List<QuestionPresentationViewModel> Questions { get; set; } = [];
+}
+
+public class QuestionPresentationViewModel
+{
+    public int QuestionId { get; set; }
+    public string Prompt { get; set; } = string.Empty;
+    public List<QuestionOptionViewModel> Options { get; set; } = [];
+}
+
+public class QuestionOptionViewModel
+{
+    public string Key { get; set; } = string.Empty;
+    public string Text { get; set; } = string.Empty;
+}
+
+public class LearningMaterialPageViewModel
+{
+    public LearningMaterial Material { get; set; } = null!;
+    public LearningModuleContent Content { get; set; } = new();
+    public bool IsCompleted { get; set; }
 }

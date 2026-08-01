@@ -13,6 +13,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ActivityEvidence> ActivityEvidences => Set<ActivityEvidence>();
     public DbSet<Question> Questions => Set<Question>();
     public DbSet<ActivityAnswer> ActivityAnswers => Set<ActivityAnswer>();
+    public DbSet<ActivityQuestionSelection> ActivityQuestionSelections => Set<ActivityQuestionSelection>();
     public DbSet<RubricEvaluation> RubricEvaluations => Set<RubricEvaluation>();
     public DbSet<ValidationSession> ValidationSessions => Set<ValidationSession>();
     public DbSet<FinalExamAttempt> FinalExamAttempts => Set<FinalExamAttempt>();
@@ -26,9 +27,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<AppUser>().HasIndex(x => x.Email).IsUnique();
         modelBuilder.Entity<ActivityTemplate>().HasIndex(x => x.Sequence).IsUnique();
         modelBuilder.Entity<ActivityEvidence>().HasIndex(x => new { x.AssignmentId, x.Sequence }).IsUnique();
+        modelBuilder.Entity<ActivityQuestionSelection>().HasIndex(x => new { x.EvidenceId, x.QuestionId }).IsUnique();
+        modelBuilder.Entity<ActivityQuestionSelection>().HasIndex(x => new { x.EvidenceId, x.DisplayOrder }).IsUnique();
         modelBuilder.Entity<FinalExamAttempt>().HasIndex(x => new { x.AssignmentId, x.AttemptNumber }).IsUnique();
+        modelBuilder.Entity<FinalExamAnswer>().HasIndex(x => new { x.AttemptId, x.DisplayOrder }).IsUnique();
+        modelBuilder.Entity<FinalExamAnswer>().HasIndex(x => new { x.AttemptId, x.QuestionId }).IsUnique();
         modelBuilder.Entity<ValidationSession>().HasIndex(x => x.CodeHash);
         modelBuilder.Entity<LearningMaterialProgress>().HasIndex(x => new { x.UserId, x.MaterialId }).IsUnique();
+        modelBuilder.Entity<Question>().HasIndex(x => x.ContentKey).IsUnique();
 
         modelBuilder.Entity<TrainingAssignment>()
             .HasOne(x => x.Collaborator).WithMany().HasForeignKey(x => x.CollaboratorId).OnDelete(DeleteBehavior.Restrict);

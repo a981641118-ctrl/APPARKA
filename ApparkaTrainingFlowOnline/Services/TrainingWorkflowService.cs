@@ -92,6 +92,8 @@ public class TrainingWorkflowService(
         var nowUtc = DateTimeOffset.UtcNow;
         var evidence = await db.ActivityEvidences
             .Include(x => x.Assignment).ThenInclude(x => x.Activities)
+            .Include(x => x.Template).ThenInclude(x => x.Questions)
+            .Include(x => x.QuestionSelections)
             .FirstOrDefaultAsync(x => x.Id == evidenceId);
 
         if (evidence is null)
@@ -114,6 +116,10 @@ public class TrainingWorkflowService(
         if (evidence.Sequence > 1 && !evidence.Assignment.Activities.Any(x =>
                 x.Sequence == evidence.Sequence - 1 && x.Status == EvidenceStatus.Completed))
             return new(false, "Primero debes completar la actividad anterior.");
+
+        var questionBank = evidence.Template.Questions.Where(x => x.IsActive).ToList();
+        if (questionBank.Count != 4)
+            return new(false, "Esta actividad todavía no tiene configurado su banco de cuatro preguntas.");
 
         var recentInvalidAttempts = await db.AuditLogs.CountAsync(x =>
             x.Action == "INVALID_VALIDATION_CODE"
@@ -183,6 +189,20 @@ public class TrainingWorkflowService(
             ? challengeText
             : challenges[RandomNumberGenerator.GetInt32(challenges.Length)];
 
+        if (evidence.QuestionSelections.Count == 0)
+        {
+            var selectedQuestions = Shuffle(questionBank).Take(3).ToList();
+            for (var index = 0; index < selectedQuestions.Count; index++)
+            {
+                evidence.QuestionSelections.Add(new ActivityQuestionSelection
+                {
+                    QuestionId = selectedQuestions[index].Id,
+                    DisplayOrder = index + 1,
+                    OptionOrder = RandomOptionOrder()
+                });
+            }
+        }
+
         await db.SaveChangesAsync();
         await transaction.CommitAsync();
 
@@ -202,7 +222,7 @@ public class TrainingWorkflowService(
     {
         var evidence = await db.ActivityEvidences
             .Include(x => x.Assignment)
-            .Include(x => x.Template).ThenInclude(x => x.Questions)
+            .Include(x => x.QuestionSelections).ThenInclude(x => x.Question)
             .Include(x => x.Answers)
             .FirstOrDefaultAsync(x => x.Id == evidenceId);
 
@@ -211,7 +231,10 @@ public class TrainingWorkflowService(
         if (evidence.Status != EvidenceStatus.InProgress) return new(false, "Esta actividad ya fue respondida o no se ha iniciado.");
         if (evidence.Answers.Count != 0) return new(false, "La evidencia solo puede responderse una vez.");
 
-        var questions = evidence.Template.Questions.OrderBy(x => x.Id).ToList();
+        var questions = evidence.QuestionSelections
+            .OrderBy(x => x.DisplayOrder)
+            .Select(x => x.Question)
+            .ToList();
         if (answers is null || questions.Count == 0 || questions.Any(q => !answers.ContainsKey(q.Id)))
             return new(false, "Responde todas las preguntas.");
 
@@ -345,7 +368,9 @@ public class TrainingWorkflowService(
         if (assignment.FinalExamAttempts.Count >= _options.FinalExamMaxAttempts)
             return (new(false, $"Ya utilizaste los {_options.FinalExamMaxAttempts} intentos permitidos."), null);
 
-        var questionBank = await db.Questions.Where(x => x.IsFinalExamQuestion).ToListAsync();
+        var questionBank = await db.Questions
+            .Where(x => x.IsFinalExamQuestion && x.IsActive)
+            .ToListAsync();
         if (questionBank.Count < 10)
             return (new(false, "No existen suficientes preguntas configuradas para iniciar el examen final."), null);
 
@@ -358,7 +383,12 @@ public class TrainingWorkflowService(
         {
             AssignmentId = assignmentId,
             AttemptNumber = assignment.FinalExamAttempts.Count + 1,
-            Answers = questions.Select(q => new FinalExamAnswer { QuestionId = q.Id }).ToList()
+            Answers = questions.Select((q, index) => new FinalExamAnswer
+            {
+                QuestionId = q.Id,
+                DisplayOrder = index + 1,
+                OptionOrder = RandomOptionOrder()
+            }).ToList()
         };
 
         db.FinalExamAttempts.Add(attempt);
@@ -432,4 +462,17 @@ public class TrainingWorkflowService(
             detail,
             AuditSeverity.Warning);
     }
+
+    private static List<T> Shuffle<T>(IReadOnlyList<T> source)
+    {
+        var result = source.ToList();
+        for (var index = result.Count - 1; index > 0; index--)
+        {
+            var swapWith = RandomNumberGenerator.GetInt32(index + 1);
+            (result[index], result[swapWith]) = (result[swapWith], result[index]);
+        }
+        return result;
+    }
+
+    private static string RandomOptionOrder() => string.Concat(Shuffle(new[] { 'A', 'B', 'C', 'D' }));
 }
