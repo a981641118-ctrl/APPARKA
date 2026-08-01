@@ -3,14 +3,14 @@
 <section class="page-header"><p class="eyebrow">INTENTO @attempt.AttemptNumber DE 3</p><h1>Examen final de aptitud</h1><p>Debes alcanzar 80%. Las respuestas correctas no se mostrarán mientras todavía tengas intentos disponibles.</p></section>
 <form asp-action="FinalExam" method="post" class="card quiz-card"><input type="hidden" name="attemptId" value="@attempt.Id" />
 @{ var qn = 0; }
-@foreach (var answer in attempt.Answers.OrderBy(x => x.Id))
+@foreach (var q in Model.Questions)
 {
-    qn++; var q = answer.Question;
+    qn++;
     <fieldset class="question"><legend>@qn. @q.Prompt</legend>
-        <label><input type="radio" name="answers[@q.Id]" value="A" required /> <span>@q.OptionA</span></label>
-        <label><input type="radio" name="answers[@q.Id]" value="B" /> <span>@q.OptionB</span></label>
-        <label><input type="radio" name="answers[@q.Id]" value="C" /> <span>@q.OptionC</span></label>
-        <label><input type="radio" name="answers[@q.Id]" value="D" /> <span>@q.OptionD</span></label>
+        @foreach (var option in q.Options)
+        {
+            <label><input type="radio" name="answers[@q.QuestionId]" value="@option.Key" required /> <span>@option.Text</span></label>
+        }
     </fieldset>
 }
 <div class="warning-box">Al enviar, este intento se cerrará. Máximo permitido: tres intentos.</div><button class="button primary full" type="submit">Enviar examen final</button></form>
