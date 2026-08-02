@@ -2,7 +2,7 @@
 @{ ViewData["Title"] = "Periodos de prueba"; }
 <section class="page-header split-header">
     <div><p class="eyebrow">RECURSOS HUMANOS</p><h1>Periodos de prueba</h1><p>Registro, fechas automáticas y resultado final por colaborador.</p></div>
-    <a class="button primary" asp-action="Create">+ Nuevo colaborador</a>
+    <div class="header-actions"><a class="button ghost" asp-controller="People" asp-action="Locations">Sedes</a><a class="button secondary" asp-controller="People" asp-action="Index">Gestionar personas</a><a class="button primary" asp-action="Create">+ Nuevo colaborador</a></div>
 </section>
 <section class="card-grid">
 @foreach (var item in Model)

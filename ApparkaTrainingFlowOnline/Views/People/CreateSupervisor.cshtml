@@ -1,0 +1,17 @@
+@model CreateSupervisorViewModel
+@{ ViewData["Title"] = "Nuevo supervisor"; }
+<section class="page-header"><p class="eyebrow">ALTA INTERNA</p><h1>Registrar supervisor</h1><p>La persona recibirá un enlace privado para crear su contraseña.</p></section>
+<form asp-action="CreateSupervisor" method="post" class="card form-card">
+    <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
+    <div class="form-grid">
+        <div><label asp-for="FullName">Nombres y apellidos</label><input asp-for="FullName" /><span asp-validation-for="FullName"></span></div>
+        <div><label asp-for="Email">Correo</label><input asp-for="Email" /><span asp-validation-for="Email"></span></div>
+        <div><label asp-for="EmployeeCode">Código interno o documento</label><input asp-for="EmployeeCode" /><span asp-validation-for="EmployeeCode"></span></div>
+        <div><label asp-for="Phone">Teléfono</label><input asp-for="Phone" inputmode="tel" /><span asp-validation-for="Phone"></span></div>
+    </div>
+    <fieldset class="selection-fieldset"><legend>Sedes que podrá supervisar</legend><p class="muted">Selecciona una o varias.</p><div class="checkbox-grid">
+    @foreach (var location in Model.Locations)
+    { <label class="check-card"><input type="checkbox" name="LocationIds" value="@location.Value" checked="@location.Selected" /><span>@location.Text</span></label> }
+    </div><span asp-validation-for="LocationIds"></span></fieldset>
+    <div class="form-actions"><a class="button ghost" asp-action="Index">Cancelar</a><button class="button primary" type="submit">Registrar supervisor</button></div>
+</form>

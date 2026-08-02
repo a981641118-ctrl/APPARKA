@@ -4,6 +4,7 @@
 <section class="card challenge-card"><span>RETO PRÁCTICO ASIGNADO</span><h2>@(Model.Evidence.AssignedChallenge ?? Model.Evidence.Template.PracticalChallenge)</h2><p>El colaborador ya respondió el cuestionario con @Model.Evidence.KnowledgeScore%. Evalúa la ejecución observada; no vuelvas a realizarle las preguntas.</p></section>
 <form asp-action="Review" method="post" class="card form-card">
     <input asp-for="EvidenceId" type="hidden" />
+    <input asp-for="DashboardSupervisorId" type="hidden" />
     <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
     @for (var i = 0; i < Model.Items.Count; i++)
     {
@@ -18,5 +19,5 @@
     <label asp-for="Feedback">Retroalimentación final</label>
     <textarea asp-for="Feedback" rows="4" placeholder="Indica fortalezas y aspectos que debe recordar para el examen final."></textarea>
     <div class="info-box"><strong>Esta evidencia no tiene reintento</strong><p>Al guardar, se registrarán el porcentaje y los errores. El examen final será la única etapa con hasta tres intentos.</p></div>
-    <div class="form-actions"><a class="button ghost" asp-action="Dashboard">Cancelar</a><button class="button primary" type="submit">Cerrar evidencia</button></div>
+    <div class="form-actions"><a class="button ghost" asp-action="Dashboard" asp-route-supervisorId="@Model.DashboardSupervisorId">Cancelar</a><button class="button primary" type="submit">Cerrar evidencia</button></div>
 </form>

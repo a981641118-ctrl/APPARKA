@@ -16,21 +16,44 @@ public class SupervisorController(
     TrainingScheduleService schedule,
     PeruClock clock) : Controller
 {
-    public async Task<IActionResult> Dashboard()
+    public async Task<IActionResult> Dashboard(int? supervisorId = null)
     {
+        var isAdministrator = User.IsInRole(AppRoles.Administrator);
+        var supervisors = isAdministrator
+            ? await db.Users.AsNoTracking()
+                .Where(x => x.Role == AppRoles.Supervisor)
+                .OrderByDescending(x => x.IsActive)
+                .ThenBy(x => x.FullName)
+                .ToListAsync()
+            : [];
+
+        if (isAdministrator && supervisorId is not null && supervisors.All(x => x.Id != supervisorId))
+            return NotFound();
+
         var query = db.TrainingAssignments
-            .Include(x => x.Collaborator).Include(x => x.Location).Include(x => x.Position)
+            .Include(x => x.Collaborator).Include(x => x.Supervisor)
+            .Include(x => x.Location).Include(x => x.Position)
             .Include(x => x.Activities).ThenInclude(x => x.Template)
             .AsQueryable();
-        if (!User.IsInRole(AppRoles.Administrator)) query = query.Where(x => x.SupervisorId == current.UserId);
+        if (isAdministrator && supervisorId is not null)
+            query = query.Where(x => x.SupervisorId == supervisorId);
+        else if (!isAdministrator)
+            query = query.Where(x => x.SupervisorId == current.UserId);
+
         var assignments = await query.OrderByDescending(x => x.CreatedAt).ToListAsync();
         foreach (var item in assignments) await schedule.RefreshAssignmentStatusAsync(item);
-        return View(assignments);
+        return View(new SupervisorDashboardViewModel
+        {
+            Assignments = assignments,
+            Supervisors = supervisors,
+            SelectedSupervisorId = isAdministrator ? supervisorId : current.UserId,
+            IsAdministrator = isAdministrator
+        });
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> GenerateCode(int evidenceId)
+    public async Task<IActionResult> GenerateCode(int evidenceId, int? supervisorId = null)
     {
         var result = await workflow.GenerateValidationCodeAsync(evidenceId, current.UserId!.Value);
         TempData[result.Result.Success ? "Success" : "Error"] = result.Result.Message;
@@ -42,11 +65,11 @@ public class SupervisorController(
                 ? string.Empty
                 : clock.Format(result.ExpiresAt.Value, "dd/MM/yyyy HH:mm:ss");
         }
-        return RedirectToAction(nameof(Dashboard));
+        return RedirectToAction(nameof(Dashboard), new { supervisorId });
     }
 
     [HttpGet]
-    public async Task<IActionResult> Review(int id)
+    public async Task<IActionResult> Review(int id, int? supervisorId = null)
     {
         var evidence = await db.ActivityEvidences
             .Include(x => x.Assignment).ThenInclude(x => x.Collaborator)
@@ -58,6 +81,7 @@ public class SupervisorController(
         var model = new SupervisorReviewViewModel
         {
             EvidenceId = evidence.Id,
+            DashboardSupervisorId = supervisorId,
             Evidence = evidence,
             Items = DefaultRubric()
         };
@@ -72,7 +96,7 @@ public class SupervisorController(
         if (model.Items.Count != canonical.Count)
         {
             TempData["Error"] = "La rúbrica recibida no es válida.";
-            return RedirectToAction(nameof(Review), new { id = model.EvidenceId });
+            return RedirectToAction(nameof(Review), new { id = model.EvidenceId, supervisorId = model.DashboardSupervisorId });
         }
         var safeRubric = canonical.Select((item, index) =>
             (item.Criterion, item.IsCritical, model.Items[index].Rating, model.Items[index].Observation)).ToList();
@@ -91,7 +115,7 @@ public class SupervisorController(
                 .FirstAsync(x => x.Id == model.EvidenceId);
             return View(model);
         }
-        return RedirectToAction(nameof(Dashboard));
+        return RedirectToAction(nameof(Dashboard), new { supervisorId = model.DashboardSupervisorId });
     }
 
     private static List<RubricInput> DefaultRubric() =>

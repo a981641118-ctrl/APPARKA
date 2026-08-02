@@ -7,13 +7,19 @@ public class AppUser
     public int Id { get; set; }
     [Required, MaxLength(120)] public string FullName { get; set; } = string.Empty;
     [Required, MaxLength(160)] public string Email { get; set; } = string.Empty;
+    [MaxLength(30)] public string? EmployeeCode { get; set; }
+    [MaxLength(30)] public string? Phone { get; set; }
     [Required] public string PasswordHash { get; set; } = string.Empty;
     [Required, MaxLength(30)] public string Role { get; set; } = AppRoles.Collaborator;
     public bool IsActive { get; set; } = true;
     public bool MustChangePassword { get; set; }
     [MaxLength(80)] public string? ActivationToken { get; set; }
     public DateTimeOffset? ActivationExpiresAt { get; set; }
+    [MaxLength(64)] public string? PasswordResetTokenHash { get; set; }
+    public DateTimeOffset? PasswordResetExpiresAt { get; set; }
+    public DateTimeOffset? WelcomeAcknowledgedAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public ICollection<SupervisorLocation> SupervisorLocations { get; set; } = [];
 }
 
 public static class AppRoles

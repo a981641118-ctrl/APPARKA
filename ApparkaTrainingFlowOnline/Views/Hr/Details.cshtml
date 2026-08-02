@@ -1,7 +1,7 @@
 @inject ApparkaTrainingFlowOnline.Services.PeruClock Clock
 @model TrainingAssignment
 @{ ViewData["Title"] = "Expediente"; var logs = ViewBag.AuditLogs as IReadOnlyList<AuditLog> ?? new List<AuditLog>(); }
-<section class="page-header"><p class="eyebrow">EXPEDIENTE DIGITAL</p><h1>@Model.Collaborator.FullName</h1><p>@Model.Position.Name · @Model.Location.Name</p></section>
+<section class="page-header split-header"><div><p class="eyebrow">EXPEDIENTE DIGITAL</p><h1>@Model.Collaborator.FullName</h1><p>@Model.Position.Name · @Model.Location.Name</p></div><a class="button secondary" asp-controller="People" asp-action="Edit" asp-route-id="@Model.CollaboratorId">Editar información</a></section>
 @if (TempData["ActivationLink"] is string link)
 {
     <section class="card activation-card"><h2>Enlace para enviar al colaborador</h2><p>Permite revisar materiales antes del primer día y crear su contraseña.</p><div class="copy-row"><input id="activationLink" readonly value="@link" /><button class="button secondary" type="button" onclick="copyField('activationLink')">Copiar</button></div></section>

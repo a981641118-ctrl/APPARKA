@@ -34,7 +34,8 @@ public class HrController(
     [HttpGet]
     public async Task<IActionResult> Create()
     {
-        var model = new CreateCollaboratorViewModel { AccessFrom = clock.Today.ToDateTime(TimeOnly.MinValue), StartDate = clock.Today.AddDays(3).ToDateTime(TimeOnly.MinValue) };
+        var position = await db.Positions.FirstAsync(x => x.IsActive && x.Name == "Anfitrión Red Comercial");
+        var model = new CreateCollaboratorViewModel { PositionId = position.Id, AccessFrom = clock.Today.ToDateTime(TimeOnly.MinValue), StartDate = clock.Today.AddDays(3).ToDateTime(TimeOnly.MinValue) };
         await FillLists(model);
         return View(model);
     }
@@ -43,10 +44,22 @@ public class HrController(
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(CreateCollaboratorViewModel model)
     {
+        var position = await db.Positions.FirstOrDefaultAsync(x => x.IsActive && x.Name == "Anfitrión Red Comercial");
+        if (position is null)
+            ModelState.AddModelError(string.Empty, "No está configurado el perfil Anfitrión Red Comercial.");
+        else
+            model.PositionId = position.Id;
         if (model.AccessFrom.Date > model.StartDate.Date)
             ModelState.AddModelError(nameof(model.AccessFrom), "El acceso previo no puede ser posterior al inicio.");
         if (await db.Users.AnyAsync(x => x.Email == model.Email.Trim().ToLower()))
             ModelState.AddModelError(nameof(model.Email), "Ya existe un usuario con este correo.");
+        var employeeCode = string.IsNullOrWhiteSpace(model.EmployeeCode) ? null : model.EmployeeCode.Trim().ToUpperInvariant();
+        if (employeeCode is not null && await db.Users.AnyAsync(x => x.EmployeeCode == employeeCode))
+            ModelState.AddModelError(nameof(model.EmployeeCode), "El código interno o documento ya está registrado.");
+        if (!await db.Locations.AnyAsync(x => x.Id == model.LocationId && x.IsActive))
+            ModelState.AddModelError(nameof(model.LocationId), "Selecciona una sede activa.");
+        if (!await db.SupervisorLocations.AnyAsync(x => x.SupervisorId == model.SupervisorId && x.LocationId == model.LocationId))
+            ModelState.AddModelError(nameof(model.SupervisorId), "El supervisor seleccionado no está asignado a esta sede.");
         if (!ModelState.IsValid)
         {
             await FillLists(model);
@@ -57,6 +70,8 @@ public class HrController(
         {
             FullName = model.FullName.Trim(),
             Email = model.Email.Trim().ToLowerInvariant(),
+            EmployeeCode = employeeCode,
+            Phone = string.IsNullOrWhiteSpace(model.Phone) ? null : model.Phone.Trim(),
             Role = AppRoles.Collaborator,
             ActivationToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(24)).ToLowerInvariant(),
             ActivationExpiresAt = DateTimeOffset.UtcNow.AddDays(14),
@@ -72,7 +87,7 @@ public class HrController(
             SupervisorId = model.SupervisorId,
             CreatedById = current.UserId!.Value,
             LocationId = model.LocationId,
-            PositionId = model.PositionId,
+            PositionId = position!.Id,
             AccessFrom = DateOnly.FromDateTime(model.AccessFrom),
             StartDate = DateOnly.FromDateTime(model.StartDate),
             EndDate = DateOnly.FromDateTime(model.StartDate.AddDays(20)),
@@ -118,8 +133,8 @@ public class HrController(
     private async Task FillLists(CreateCollaboratorViewModel model)
     {
         model.Locations = await db.Locations.Where(x => x.IsActive).Select(x => new SelectListItem(x.Name, x.Id.ToString())).ToListAsync();
-        model.Positions = await db.Positions.Where(x => x.IsActive).Select(x => new SelectListItem(x.Name, x.Id.ToString())).ToListAsync();
         model.Supervisors = await db.Users.Where(x => x.Role == AppRoles.Supervisor && x.IsActive)
+            .OrderBy(x => x.FullName)
             .Select(x => new SelectListItem(x.FullName, x.Id.ToString())).ToListAsync();
     }
 }
