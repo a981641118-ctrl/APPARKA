@@ -27,6 +27,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     {
         modelBuilder.Entity<AppUser>().HasIndex(x => x.Email).IsUnique();
         modelBuilder.Entity<AppUser>().HasIndex(x => x.EmployeeCode).IsUnique();
+        modelBuilder.Entity<AppUser>().HasIndex(x => x.PasswordResetTokenHash);
         modelBuilder.Entity<Location>().HasIndex(x => x.Code).IsUnique();
         modelBuilder.Entity<SupervisorLocation>().HasKey(x => new { x.SupervisorId, x.LocationId });
         modelBuilder.Entity<SupervisorLocation>()

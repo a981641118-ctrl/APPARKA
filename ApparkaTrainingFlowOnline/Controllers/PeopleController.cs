@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
+using System.Text;
 
 namespace ApparkaTrainingFlowOnline.Controllers;
 
@@ -227,6 +228,63 @@ public class PeopleController(
         return RedirectToAction(nameof(Index));
     }
 
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ResendAccess(int id)
+    {
+        var user = await EditableUser(id);
+        if (user is null) return NotFound();
+        if (!user.IsActive)
+        {
+            TempData["Error"] = "Activa la cuenta antes de generar un nuevo enlace de acceso.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        string accessLink;
+        bool emailSent;
+        if (user.MustChangePassword)
+        {
+            user.ActivationToken = CreateToken(24);
+            user.ActivationExpiresAt = DateTimeOffset.UtcNow.AddDays(14);
+            user.PasswordResetTokenHash = null;
+            user.PasswordResetExpiresAt = null;
+            await db.SaveChangesAsync();
+
+            accessLink = Url.Action("Activate", "Account", new { token = user.ActivationToken }, Request.Scheme) ?? string.Empty;
+            if (user.Role == AppRoles.Collaborator)
+            {
+                var assignment = await db.TrainingAssignments.AsNoTracking()
+                    .OrderByDescending(x => x.CreatedAt)
+                    .FirstOrDefaultAsync(x => x.CollaboratorId == user.Id);
+                emailSent = assignment is not null
+                    ? await invitationEmail.SendAsync(user.Email, user.FullName, accessLink, assignment.AccessFrom, assignment.StartDate)
+                    : await invitationEmail.SendSupervisorAsync(user.Email, user.FullName, accessLink);
+            }
+            else
+            {
+                emailSent = await invitationEmail.SendSupervisorAsync(user.Email, user.FullName, accessLink);
+            }
+        }
+        else
+        {
+            var token = CreateToken(32);
+            user.PasswordResetTokenHash = HashToken(token);
+            user.PasswordResetExpiresAt = DateTimeOffset.UtcNow.AddHours(1);
+            await db.SaveChangesAsync();
+
+            accessLink = Url.Action("ResetPassword", "Account", new { token }, Request.Scheme) ?? string.Empty;
+            emailSent = await invitationEmail.SendPasswordResetAsync(user.Email, user.FullName, accessLink);
+        }
+
+        await audit.WriteAsync("ACCESS_LINK_REISSUED", nameof(AppUser), user.Id,
+            "RR. HH. o Administración generó un nuevo enlace personal de acceso.");
+        TempData["ActivationLink"] = accessLink;
+        TempData["Success"] = emailSent
+            ? "El nuevo enlace fue enviado al correo registrado."
+            : "El enlace fue generado. Cópialo y envíalo de forma privada.";
+        return RedirectToAction(nameof(Index));
+    }
+
     public async Task<IActionResult> Locations()
     {
         var locations = await db.Locations.AsNoTracking().OrderBy(x => x.Name).ToListAsync();
@@ -343,4 +401,7 @@ public class PeopleController(
     private static string? NormalizeCode(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim().ToUpperInvariant();
     private static string NormalizeRequiredCode(string value) => value.Trim().ToUpperInvariant();
     private static string? NormalizeOptional(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    private static string CreateToken(int byteCount) => Convert.ToHexString(RandomNumberGenerator.GetBytes(byteCount)).ToLowerInvariant();
+    private static string HashToken(string token) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token))).ToLowerInvariant();
 }

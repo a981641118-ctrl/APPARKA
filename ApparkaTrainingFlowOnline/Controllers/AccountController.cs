@@ -9,10 +9,16 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace ApparkaTrainingFlowOnline.Controllers;
 
-public class AccountController(AppDbContext db, PasswordService passwords, AuditService audit) : Controller
+public class AccountController(
+    AppDbContext db,
+    PasswordService passwords,
+    AuditService audit,
+    InvitationEmailService invitationEmail) : Controller
 {
     [AllowAnonymous]
     [HttpGet]
@@ -116,5 +122,82 @@ public class AccountController(AppDbContext db, PasswordService passwords, Audit
     }
 
     [AllowAnonymous]
+    [HttpGet]
+    public IActionResult ForgotPassword() => View(new ForgotPasswordViewModel());
+
+    [AllowAnonymous]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [EnableRateLimiting("sensitive")]
+    public async Task<IActionResult> ForgotPassword(ForgotPasswordViewModel model)
+    {
+        if (!ModelState.IsValid) return View(model);
+
+        var email = model.Email.Trim().ToLowerInvariant();
+        var user = await db.Users.SingleOrDefaultAsync(x => x.Email == email && x.IsActive);
+        if (user is not null)
+        {
+            var token = CreateToken();
+            user.PasswordResetTokenHash = HashToken(token);
+            user.PasswordResetExpiresAt = DateTimeOffset.UtcNow.AddHours(1);
+            await db.SaveChangesAsync();
+
+            var resetLink = Url.Action(nameof(ResetPassword), "Account", new { token }, Request.Scheme) ?? string.Empty;
+            await invitationEmail.SendPasswordResetAsync(user.Email, user.FullName, resetLink);
+            await audit.WriteAsync("PASSWORD_RESET_REQUESTED", nameof(AppUser), user.Id,
+                "Se generó un enlace temporal para restablecer la contraseña.");
+        }
+
+        return RedirectToAction(nameof(ForgotPasswordConfirmation));
+    }
+
+    [AllowAnonymous]
+    [HttpGet]
+    public IActionResult ForgotPasswordConfirmation() => View();
+
+    [AllowAnonymous]
+    [HttpGet]
+    public async Task<IActionResult> ResetPassword(string token)
+    {
+        if (string.IsNullOrWhiteSpace(token)) return View("PasswordResetInvalid");
+        var tokenHash = HashToken(token);
+        var exists = await db.Users.AnyAsync(x => x.PasswordResetTokenHash == tokenHash
+            && x.PasswordResetExpiresAt > DateTimeOffset.UtcNow && x.IsActive);
+        return exists
+            ? View(new ResetPasswordViewModel { Token = token })
+            : View("PasswordResetInvalid");
+    }
+
+    [AllowAnonymous]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [EnableRateLimiting("sensitive")]
+    public async Task<IActionResult> ResetPassword(ResetPasswordViewModel model)
+    {
+        if (!ModelState.IsValid) return View(model);
+        var tokenHash = HashToken(model.Token);
+        var user = await db.Users.SingleOrDefaultAsync(x => x.PasswordResetTokenHash == tokenHash
+            && x.PasswordResetExpiresAt > DateTimeOffset.UtcNow && x.IsActive);
+        if (user is null) return View("PasswordResetInvalid");
+
+        user.PasswordHash = passwords.Hash(user, model.Password);
+        user.PasswordResetTokenHash = null;
+        user.PasswordResetExpiresAt = null;
+        user.ActivationToken = null;
+        user.ActivationExpiresAt = null;
+        user.MustChangePassword = false;
+        await db.SaveChangesAsync();
+        await audit.WriteAsync("PASSWORD_RESET_COMPLETED", nameof(AppUser), user.Id,
+            "La contraseña fue restablecida mediante un enlace temporal.");
+        TempData["Success"] = "Contraseña actualizada. Ya puedes iniciar sesión.";
+        return RedirectToAction(nameof(Login));
+    }
+
+    [AllowAnonymous]
     public IActionResult AccessDenied() => View();
+
+    private static string CreateToken() => Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
+
+    private static string HashToken(string token) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token))).ToLowerInvariant();
 }

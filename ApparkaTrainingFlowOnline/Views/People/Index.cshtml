@@ -6,19 +6,19 @@
 </section>
 @if (TempData["ActivationLink"] is string link)
 {
-    <section class="card activation-card"><h2>Enlace de activación</h2><p>Envíalo de forma privada al nuevo supervisor para que cree su contraseña.</p><div class="copy-row"><input id="activationLink" readonly value="@link" /><button class="button secondary" type="button" onclick="copyField('activationLink')">Copiar</button></div></section>
+    <section class="card activation-card"><h2>Enlace temporal de acceso</h2><p>Envíalo únicamente a la persona correspondiente. El enlace anterior queda reemplazado.</p><div class="copy-row"><input id="activationLink" readonly value="@link" /><button class="button secondary" type="button" onclick="copyField('activationLink')">Copiar</button></div></section>
 }
 <section class="card"><div class="section-title"><div><p class="eyebrow">RESPONSABLES</p><h2>Supervisores</h2></div><span class="count-badge">@Model.Supervisors.Count</span></div>
 <div class="management-list">
 @foreach (var row in Model.Supervisors)
 {
-    <article class="management-row"><div class="avatar">@row.User.FullName[0]</div><div class="grow"><strong>@row.User.FullName</strong><p>@row.User.Email</p><small>@row.Detail</small></div><span class="status @(row.User.IsActive ? "completed" : "cancelled")">@(row.User.IsActive ? "Activo" : "Inactivo")</span><a class="button secondary" asp-action="Edit" asp-route-id="@row.User.Id">Editar</a></article>
+    <article class="management-row"><div class="avatar">@row.User.FullName[0]</div><div class="grow"><strong>@row.User.FullName</strong><p>@row.User.Email</p><small>@row.Detail</small></div><span class="status @(row.User.IsActive ? "completed" : "cancelled")">@(row.User.IsActive ? "Activo" : "Inactivo")</span><div class="row-actions"><a class="button secondary" asp-action="Edit" asp-route-id="@row.User.Id">Editar</a><form asp-action="ResendAccess" asp-route-id="@row.User.Id" method="post" data-confirm="Se invalidará el enlace anterior y se generará uno nuevo. ¿Deseas continuar?"><button class="button secondary" type="submit">@(row.User.MustChangePassword ? "Reenviar activación" : "Restablecer acceso")</button></form></div></article>
 }
 </div></section>
 <section class="card"><div class="section-title"><div><p class="eyebrow">EN ENTRENAMIENTO</p><h2>Colaboradores</h2></div><span class="count-badge">@Model.Collaborators.Count</span></div>
 <div class="management-list">
 @foreach (var row in Model.Collaborators)
 {
-    <article class="management-row"><div class="avatar">@row.User.FullName[0]</div><div class="grow"><strong>@row.User.FullName</strong><p>@row.User.Email</p><small>@row.Detail</small></div><span class="status @(row.User.IsActive ? "completed" : "cancelled")">@(row.User.IsActive ? "Activo" : "Inactivo")</span><a class="button secondary" asp-action="Edit" asp-route-id="@row.User.Id">Editar</a></article>
+    <article class="management-row"><div class="avatar">@row.User.FullName[0]</div><div class="grow"><strong>@row.User.FullName</strong><p>@row.User.Email</p><small>@row.Detail</small></div><span class="status @(row.User.IsActive ? "completed" : "cancelled")">@(row.User.IsActive ? "Activo" : "Inactivo")</span><div class="row-actions"><a class="button secondary" asp-action="Edit" asp-route-id="@row.User.Id">Editar</a><form asp-action="ResendAccess" asp-route-id="@row.User.Id" method="post" data-confirm="Se invalidará el enlace anterior y se generará uno nuevo. ¿Deseas continuar?"><button class="button secondary" type="submit">@(row.User.MustChangePassword ? "Reenviar activación" : "Restablecer acceso")</button></form></div></article>
 }
 </div></section>

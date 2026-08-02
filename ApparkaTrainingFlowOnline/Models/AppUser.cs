@@ -15,6 +15,8 @@ public class AppUser
     public bool MustChangePassword { get; set; }
     [MaxLength(80)] public string? ActivationToken { get; set; }
     public DateTimeOffset? ActivationExpiresAt { get; set; }
+    [MaxLength(64)] public string? PasswordResetTokenHash { get; set; }
+    public DateTimeOffset? PasswordResetExpiresAt { get; set; }
     public DateTimeOffset? WelcomeAcknowledgedAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public ICollection<SupervisorLocation> SupervisorLocations { get; set; } = [];
