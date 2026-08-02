@@ -1,0 +1,10 @@
+@model LocationFormViewModel
+@{ var editing = Model.Id > 0; ViewData["Title"] = editing ? "Editar sede" : "Nueva sede"; }
+<section class="page-header"><p class="eyebrow">@(editing ? "ACTUALIZACIÓN" : "NUEVA UBICACIÓN")</p><h1>@(editing ? "Editar sede" : "Registrar sede")</h1><p>El código permite identificar cada ubicación sin depender solamente del nombre.</p></section>
+<form asp-action="@(editing ? "EditLocation" : "CreateLocation")" method="post" class="card form-card" data-confirm="¿Confirmas que deseas guardar la información de esta sede?">
+    <input asp-for="Id" type="hidden" /><div asp-validation-summary="ModelOnly" class="validation-summary"></div>
+    <div class="form-grid"><div><label asp-for="Code">Código interno</label><input asp-for="Code" placeholder="SEDE-001" /><span asp-validation-for="Code"></span></div><div><label asp-for="Name">Nombre</label><input asp-for="Name" /><span asp-validation-for="Name"></span></div><div class="full-column"><label asp-for="Address">Dirección</label><input asp-for="Address" /><span asp-validation-for="Address"></span></div><div><label asp-for="District">Distrito</label><input asp-for="District" /></div><div><label asp-for="Province">Provincia</label><input asp-for="Province" /></div><div><label asp-for="Department">Departamento</label><input asp-for="Department" /></div><div><label asp-for="ContactPhone">Teléfono de contacto</label><input asp-for="ContactPhone" inputmode="tel" /></div><div class="full-column"><label asp-for="Notes">Observaciones</label><textarea asp-for="Notes" rows="3"></textarea></div></div>
+    @if (editing) { <label class="status-toggle"><input asp-for="IsActive" /><span><strong>Sede activa</strong><small>Las sedes inactivas conservan su historial, pero no se asignan a nuevos colaboradores.</small></span></label> }
+    else { <input asp-for="IsActive" type="hidden" value="true" /> }
+    <div class="form-actions"><a class="button ghost" asp-action="Locations">Cancelar</a><button class="button primary" type="submit">Guardar sede</button></div>
+</form>

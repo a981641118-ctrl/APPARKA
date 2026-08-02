@@ -1,0 +1,9 @@
+@model IReadOnlyList<LocationRowViewModel>
+@{ ViewData["Title"] = "Sedes"; }
+<section class="page-header split-header"><div><p class="eyebrow">COBERTURA OPERATIVA</p><h1>Gestión de sedes</h1><p>Registra nuevas ubicaciones y corrige sus datos sin perder el historial.</p></div><a class="button primary" asp-action="CreateLocation">+ Nueva sede</a></section>
+<section class="card-grid">
+@foreach (var row in Model)
+{
+    <article class="card location-card"><div class="card-top"><span class="code-pill">@(row.Location.Code ?? "SIN CÓDIGO")</span><span class="status @(row.Location.IsActive ? "completed" : "cancelled")">@(row.Location.IsActive ? "Activa" : "Inactiva")</span></div><h2>@row.Location.Name</h2><p>@(row.Location.Address ?? "Dirección pendiente")</p><p class="muted">@string.Join(" · ", new[] { row.Location.District, row.Location.Province, row.Location.Department }.Where(x => !string.IsNullOrWhiteSpace(x)))</p><div class="meta-row"><span>@row.SupervisorCount supervisor(es)</span><span>@row.AssignmentCount periodo(s)</span></div><a class="button secondary full" asp-action="EditLocation" asp-route-id="@row.Location.Id">Editar sede</a></article>
+}
+</section>

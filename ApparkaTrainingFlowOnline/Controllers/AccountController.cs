@@ -43,7 +43,41 @@ public class AccountController(AppDbContext db, PasswordService passwords, Audit
         await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme,
             new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme)));
         await audit.WriteAsync("LOGIN", nameof(AppUser), user.Id, "Inicio de sesión correcto.");
-        return LocalRedirect(string.IsNullOrWhiteSpace(model.ReturnUrl) ? "/" : model.ReturnUrl);
+        var destination = string.IsNullOrWhiteSpace(model.ReturnUrl) ? "/" : model.ReturnUrl;
+        if (user.Role == AppRoles.Collaborator && user.WelcomeAcknowledgedAt is null)
+            return RedirectToAction(nameof(Welcome), new { returnUrl = destination });
+        return LocalRedirect(destination);
+    }
+
+    [Authorize(Policy = "CollaboratorOnly")]
+    [HttpGet]
+    public async Task<IActionResult> Welcome(string? returnUrl = null)
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var user = await db.Users.FindAsync(userId);
+        if (user is null) return NotFound();
+        if (user.WelcomeAcknowledgedAt is not null)
+            return LocalRedirect(Url.IsLocalUrl(returnUrl) ? returnUrl! : "/");
+        ViewBag.ReturnUrl = Url.IsLocalUrl(returnUrl) ? returnUrl : "/";
+        return View(user);
+    }
+
+    [Authorize(Policy = "CollaboratorOnly")]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AcknowledgeWelcome(string? returnUrl = null)
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var user = await db.Users.FindAsync(userId);
+        if (user is null) return NotFound();
+        if (user.WelcomeAcknowledgedAt is null)
+        {
+            user.WelcomeAcknowledgedAt = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync();
+            await audit.WriteAsync("WELCOME_ACKNOWLEDGED", nameof(AppUser), user.Id,
+                "El colaborador confirmó el mensaje de bienvenida de su primer ingreso.");
+        }
+        return LocalRedirect(Url.IsLocalUrl(returnUrl) ? returnUrl! : "/");
     }
 
     [Authorize]

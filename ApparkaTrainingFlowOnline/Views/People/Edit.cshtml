@@ -1,0 +1,27 @@
+@model EditPersonViewModel
+@{ ViewData["Title"] = "Editar persona"; var isSupervisor = Model.Role == AppRoles.Supervisor; }
+<section class="page-header"><p class="eyebrow">CORRECCIÓN DE INFORMACIÓN</p><h1>Editar @(isSupervisor ? "supervisor" : "colaborador")</h1><p>Los cambios quedarán registrados en la auditoría.</p></section>
+<form asp-action="Edit" method="post" class="card form-card" data-confirm="¿Confirmas que deseas actualizar esta información?">
+    <input asp-for="Id" type="hidden" /><input asp-for="Role" type="hidden" /><input asp-for="AssignmentId" type="hidden" />
+    <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
+    <div class="form-grid">
+        <div><label asp-for="FullName">Nombres y apellidos</label><input asp-for="FullName" /><span asp-validation-for="FullName"></span></div>
+        <div><label asp-for="Email">Correo</label><input asp-for="Email" /><span asp-validation-for="Email"></span></div>
+        <div><label asp-for="EmployeeCode">Código interno o documento</label><input asp-for="EmployeeCode" /><span asp-validation-for="EmployeeCode"></span></div>
+        <div><label asp-for="Phone">Teléfono</label><input asp-for="Phone" inputmode="tel" /><span asp-validation-for="Phone"></span></div>
+    </div>
+    @if (isSupervisor)
+    {
+        <fieldset class="selection-fieldset"><legend>Sedes asignadas</legend><div class="checkbox-grid">
+        @foreach (var location in Model.Locations)
+        { <label class="check-card"><input type="checkbox" name="LocationIds" value="@location.Value" checked="@location.Selected" /><span>@location.Text</span></label> }
+        </div><span asp-validation-for="LocationIds"></span></fieldset>
+    }
+    else if (Model.AssignmentId is not null)
+    {
+        <div class="form-grid"><div><label asp-for="LocationId">Sede</label><select asp-for="LocationId" asp-items="Model.Locations"><option value="">Seleccionar</option></select><span asp-validation-for="LocationId"></span></div><div><label asp-for="SupervisorId">Supervisor responsable</label><select asp-for="SupervisorId" asp-items="Model.Supervisors"><option value="">Seleccionar</option></select><span asp-validation-for="SupervisorId"></span></div></div>
+        <div class="info-box"><strong>Importante</strong><p>El supervisor elegido debe estar asignado a la sede seleccionada.</p></div>
+    }
+    <label class="status-toggle"><input asp-for="IsActive" /><span><strong>Cuenta activa</strong><small>Una cuenta inactiva no puede iniciar sesión.</small></span></label>
+    <div class="form-actions"><a class="button ghost" asp-action="Index">Cancelar</a><button class="button primary" type="submit">Guardar cambios</button></div>
+</form>

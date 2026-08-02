@@ -55,6 +55,7 @@
             @if (User.IsInRole(AppRoles.Hr) || User.IsInRole(AppRoles.Administrator))
             {
                 <a asp-controller="Hr" asp-action="Index"><span>♙</span>Personas</a>
+                <a asp-controller="People" asp-action="Locations"><span>⌖</span>Sedes</a>
             }
             @if (User.IsInRole(AppRoles.Administrator))
             {

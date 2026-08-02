@@ -44,4 +44,41 @@ public class InvitationEmailService(IOptions<EmailOptions> options, ILogger<Invi
             return false;
         }
     }
+
+    public async Task<bool> SendSupervisorAsync(string recipient, string fullName, string activationUrl)
+    {
+        if (!_options.IsConfigured) return false;
+        try
+        {
+            using var message = new MailMessage
+            {
+                From = new MailAddress(_options.FromAddress, _options.FromName),
+                Subject = "Activa tu acceso de supervisor",
+                IsBodyHtml = true,
+                Body = $"""
+                    <h2>Hola, {WebUtility.HtmlEncode(fullName)}</h2>
+                    <p>Recursos Humanos creó tu acceso como supervisor en Apparka Training Flow.</p>
+                    <p><a href="{WebUtility.HtmlEncode(activationUrl)}">Crear mi contraseña y activar el acceso</a></p>
+                    <p>Este enlace es personal y tiene vigencia limitada.</p>
+                    """
+            };
+            message.To.Add(recipient);
+            using var client = CreateClient();
+            await client.SendMailAsync(message);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "No se pudo enviar la invitación de supervisor a {Recipient}", recipient);
+            return false;
+        }
+    }
+
+    private SmtpClient CreateClient() => new(_options.Host, _options.Port)
+    {
+        EnableSsl = _options.EnableSsl,
+        Credentials = string.IsNullOrWhiteSpace(_options.Username)
+            ? CredentialCache.DefaultNetworkCredentials
+            : new NetworkCredential(_options.Username, _options.Password)
+    };
 }

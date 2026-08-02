@@ -1,0 +1,15 @@
+@model AppUser
+@{ ViewData["Title"] = "Bienvenido"; }
+<div class="welcome-overlay" role="dialog" aria-modal="true" aria-labelledby="welcomeTitle">
+    <section class="welcome-dialog">
+        <div class="welcome-symbol" aria-hidden="true">A</div>
+        <p class="eyebrow">TU NUEVA ETAPA COMIENZA AQUÍ</p>
+        <h1 id="welcomeTitle">¡Bienvenido, @Model.FullName.Split(' ', StringSplitOptions.RemoveEmptyEntries)[0]!</h1>
+        <p>Queremos contar contigo y confiamos en todo lo que puedes lograr. Durante estas semanas te acompañaremos para que conozcas tus funciones, desarrolles tus habilidades y empieces esta etapa con seguridad.</p>
+        <p class="welcome-highlight">Tu compromiso hace la diferencia. ¡Sabemos que lo lograrás!</p>
+        <form asp-action="AcknowledgeWelcome" method="post">
+            <input type="hidden" name="returnUrl" value="@ViewBag.ReturnUrl" />
+            <button class="button primary full" type="submit">Comenzar mi entrenamiento</button>
+        </form>
+    </section>
+</div>

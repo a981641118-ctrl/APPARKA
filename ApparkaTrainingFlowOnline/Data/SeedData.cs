@@ -18,7 +18,7 @@ public static class SeedData
 
         var position = await db.Positions
             .OrderBy(x => x.Id)
-            .FirstAsync();
+            .FirstAsync(x => x.Name == "Anfitrión Red Comercial" || x.Name == "Operador de estacionamiento");
 
         if (position.Name == "Operador de estacionamiento")
         {
@@ -57,9 +57,9 @@ public static class SeedData
         if (!await db.Locations.AnyAsync())
         {
             db.Locations.AddRange(
-                new Location { Name = "Sede Centro", Address = "Lima" },
-                new Location { Name = "Sede Norte", Address = "Lima" },
-                new Location { Name = "Sede Sur", Address = "Lima" });
+                new Location { Code = "SEDE-CENTRO", Name = "Sede Centro", Address = "Lima", Department = "Lima" },
+                new Location { Code = "SEDE-NORTE", Name = "Sede Norte", Address = "Lima", Department = "Lima" },
+                new Location { Code = "SEDE-SUR", Name = "Sede Sur", Address = "Lima", Department = "Lima" });
         }
 
         if (!await db.Positions.AnyAsync())
@@ -71,6 +71,23 @@ public static class SeedData
             });
         }
 
+        await db.SaveChangesAsync();
+
+        var locations = await db.Locations.OrderBy(x => x.Id).ToListAsync();
+        for (var index = 0; index < locations.Count; index++)
+        {
+            if (string.IsNullOrWhiteSpace(locations[index].Code))
+                locations[index].Code = $"SEDE-{locations[index].Id:D3}";
+        }
+        var supervisors = await db.Users
+            .Include(x => x.SupervisorLocations)
+            .Where(x => x.Role == AppRoles.Supervisor)
+            .ToListAsync();
+        foreach (var supervisor in supervisors.Where(x => x.SupervisorLocations.Count == 0))
+        {
+            foreach (var location in locations.Where(x => x.IsActive))
+                supervisor.SupervisorLocations.Add(new SupervisorLocation { LocationId = location.Id });
+        }
         await db.SaveChangesAsync();
     }
 

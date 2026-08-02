@@ -20,6 +20,12 @@ document.querySelectorAll('.toast').forEach(el => setTimeout(() => {
 
 if ('serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js')); }
 
+document.querySelectorAll('form[data-confirm]').forEach(form => {
+    form.addEventListener('submit', event => {
+        if (!window.confirm(form.dataset.confirm)) event.preventDefault();
+    });
+});
+
 document.querySelectorAll('[data-learning-module]').forEach(module => {
     const steps = [...module.querySelectorAll('[data-learning-step]')];
     const previous = module.querySelector('[data-learning-previous]');
