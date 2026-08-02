@@ -13,6 +13,7 @@ public class ActivityPageViewModel
 public class SupervisorReviewViewModel
 {
     public int EvidenceId { get; set; }
+    public int? DashboardSupervisorId { get; set; }
     public ActivityEvidence Evidence { get; set; } = null!;
     public List<RubricInput> Items { get; set; } = [];
     public string Feedback { get; set; } = string.Empty;
@@ -31,6 +32,16 @@ public class FinalExamViewModel
     public FinalExamAttempt Attempt { get; set; } = null!;
     public Dictionary<int, string> Answers { get; set; } = [];
     public List<QuestionPresentationViewModel> Questions { get; set; } = [];
+}
+
+public class SupervisorDashboardViewModel
+{
+    public IReadOnlyList<TrainingAssignment> Assignments { get; set; } = [];
+    public IReadOnlyList<AppUser> Supervisors { get; set; } = [];
+    public int? SelectedSupervisorId { get; set; }
+    public bool IsAdministrator { get; set; }
+    public string? SelectedSupervisorName => Supervisors
+        .FirstOrDefault(x => x.Id == SelectedSupervisorId)?.FullName;
 }
 
 public class QuestionPresentationViewModel
