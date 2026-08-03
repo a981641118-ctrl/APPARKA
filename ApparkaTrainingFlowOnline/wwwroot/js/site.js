@@ -58,3 +58,84 @@ document.querySelectorAll('[data-learning-module]').forEach(module => {
     });
     render();
 });
+
+document.querySelectorAll('[data-password-toggle]').forEach(button => {
+    button.addEventListener('click', () => {
+        const input = button.closest('.password-field')?.querySelector('input');
+        if (!input) return;
+        const willShow = input.type === 'password';
+        input.type = willShow ? 'text' : 'password';
+        button.classList.toggle('is-visible', willShow);
+        button.setAttribute('aria-pressed', String(willShow));
+        button.setAttribute('aria-label', willShow ? 'Ocultar contraseña' : 'Mostrar contraseña');
+        button.title = willShow ? 'Ocultar contraseña' : 'Mostrar contraseña';
+    });
+});
+
+document.querySelectorAll('[data-supervisor-review]').forEach(form => {
+    const rows = [...form.querySelectorAll('[data-rubric-row]')];
+    const overallAssessment = form.querySelector('[data-overall-assessment]');
+    const observedStrength = form.querySelector('[data-observed-strength]');
+    const strengthLabel = form.querySelector('[data-strength-label]');
+    const evidenceLabel = form.querySelector('[data-overall-evidence-label]');
+    const improvementField = form.querySelector('[data-improvement-field]');
+    const improvementInput = improvementField?.querySelector('textarea');
+    const suggestion = form.querySelector('[data-evaluation-suggestion]');
+    const noStrengthOption = observedStrength?.querySelector('option[value="6"]');
+
+    const updateSuggestion = () => {
+        const ratings = rows.map(row => Number(row.querySelector('[data-rubric-rating]')?.value ?? 0));
+        if (ratings.some(value => value === 0)) {
+            suggestion.textContent = 'Completa primero los cinco criterios para recibir una orientación del sistema.';
+            return;
+        }
+        if (ratings.every(value => value === 1)) {
+            suggestion.textContent = 'La rúbrica muestra cumplimiento total. Puedes elegir “Cumplimiento esperado” o “Desempeño destacado” si observaste un rendimiento superior al estándar.';
+        } else if (ratings.some(value => value === 3) || ratings.filter(value => value === 2).length >= 2) {
+            suggestion.textContent = 'La rúbrica presenta incumplimientos relevantes. Revisa si corresponde seleccionar “Requiere mejora”.';
+        } else {
+            suggestion.textContent = 'La rúbrica muestra un cumplimiento mayoritario con una oportunidad puntual de mejora. Confirma el resultado según lo observado.';
+        }
+    };
+
+    const updateRubricRow = row => {
+        const rating = row.querySelector('[data-rubric-rating]');
+        const details = row.querySelector('[data-rubric-details]');
+        if (!rating || !details) return;
+        const requiresDetail = rating.value === '2' || rating.value === '3';
+        details.hidden = !requiresDetail;
+        details.querySelectorAll('textarea').forEach(field => {
+            field.required = requiresDetail;
+            if (!requiresDetail) field.value = '';
+        });
+        rating.setCustomValidity(rating.value === '0' ? 'Selecciona una calificación.' : '');
+        updateSuggestion();
+    };
+
+    const updateOverall = () => {
+        if (!overallAssessment || !observedStrength) return;
+        const needsImprovement = overallAssessment.value === '3';
+        overallAssessment.setCustomValidity(overallAssessment.value === '0' ? 'Selecciona el resultado general.' : '');
+        noStrengthOption.disabled = !needsImprovement;
+        noStrengthOption.hidden = !needsImprovement;
+        if (!needsImprovement && observedStrength.value === '6') observedStrength.value = '0';
+        observedStrength.setCustomValidity(observedStrength.value === '0' ? 'Selecciona el aspecto principal.' : '');
+        improvementField.hidden = !needsImprovement;
+        improvementInput.required = needsImprovement;
+        if (!needsImprovement) improvementInput.value = '';
+        strengthLabel.textContent = needsImprovement ? 'Principal fortaleza identificada' : 'Principal fortaleza o aspecto correcto';
+        evidenceLabel.textContent = needsImprovement ? 'Evidencia que sustenta la evaluación' : 'Ejemplo concreto de la fortaleza seleccionada';
+    };
+
+    rows.forEach(row => {
+        row.querySelector('[data-rubric-rating]')?.addEventListener('change', () => updateRubricRow(row));
+        updateRubricRow(row);
+    });
+    overallAssessment?.addEventListener('change', updateOverall);
+    observedStrength?.addEventListener('change', updateOverall);
+    form.addEventListener('submit', () => {
+        rows.forEach(updateRubricRow);
+        updateOverall();
+    });
+    updateOverall();
+});

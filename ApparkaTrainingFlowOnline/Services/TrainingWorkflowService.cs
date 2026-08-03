@@ -3,6 +3,7 @@ using ApparkaTrainingFlowOnline.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using System.Security.Cryptography;
+using System.Text;
 
 namespace ApparkaTrainingFlowOnline.Services;
 
@@ -288,7 +289,11 @@ public class TrainingWorkflowService(
     public async Task<WorkflowResult> SubmitSupervisorReviewAsync(
         int evidenceId,
         int supervisorId,
-        IReadOnlyList<(string Criterion, bool IsCritical, RatingValue Rating, string? Observation)> rubric,
+        IReadOnlyList<(string Criterion, bool IsCritical, RatingValue Rating, string? Observation, string? GuidanceProvided)> rubric,
+        OverallAssessmentValue overallAssessment,
+        ObservedStrengthValue observedStrength,
+        string? overallEvidence,
+        string? mainImprovement,
         string feedback)
     {
         var evidence = await db.ActivityEvidences
@@ -303,20 +308,41 @@ public class TrainingWorkflowService(
             return new(false, "La actividad no está pendiente de validación.");
         if (rubric.Count != 5 || rubric.Any(x => x.Rating == RatingValue.NotEvaluated))
             return new(false, "Debes evaluar los cinco criterios.");
-        if (rubric.Any(x =>
-                (x.Rating is RatingValue.PartiallyComplies or RatingValue.DoesNotComply)
-                && string.IsNullOrWhiteSpace(x.Observation)))
-            return new(false, "Agrega una observación en los criterios que no cumplen totalmente.");
+
+        foreach (var item in rubric.Where(x => x.Rating is RatingValue.PartiallyComplies or RatingValue.DoesNotComply))
+        {
+            var observationError = StructuredTextError(item.Observation, "hecho observado");
+            if (observationError is not null) return new(false, observationError);
+            var guidanceError = StructuredTextError(item.GuidanceProvided, "orientación brindada");
+            if (guidanceError is not null) return new(false, guidanceError);
+        }
+        if (overallAssessment == OverallAssessmentValue.NotEvaluated)
+            return new(false, "Selecciona una evaluación general del desempeño.");
+        if (observedStrength == ObservedStrengthValue.NotSelected)
+            return new(false, "Selecciona la principal fortaleza o indica que no se identificó una fortaleza diferenciada.");
+        if (observedStrength == ObservedStrengthValue.NoDistinctStrength
+            && overallAssessment != OverallAssessmentValue.NeedsImprovement)
+            return new(false, "Para un desempeño destacado o esperado debes seleccionar el aspecto positivo principal.");
+
+        var evidenceError = StructuredTextError(overallEvidence, "evidencia de la evaluación general");
+        if (evidenceError is not null) return new(false, evidenceError);
+        if (overallAssessment == OverallAssessmentValue.NeedsImprovement)
+        {
+            var improvementError = StructuredTextError(mainImprovement, "aspecto principal por mejorar");
+            if (improvementError is not null) return new(false, improvementError);
+        }
 
         foreach (var item in rubric)
         {
+            var requiresDetail = item.Rating is RatingValue.PartiallyComplies or RatingValue.DoesNotComply;
             db.RubricEvaluations.Add(new RubricEvaluation
             {
                 EvidenceId = evidence.Id,
                 Criterion = item.Criterion,
                 IsCritical = item.IsCritical,
                 Rating = item.Rating,
-                Observation = item.Observation?.Trim()
+                Observation = requiresDetail ? NormalizeOptional(item.Observation) : null,
+                GuidanceProvided = requiresDetail ? NormalizeOptional(item.GuidanceProvided) : null
             });
         }
 
@@ -331,7 +357,13 @@ public class TrainingWorkflowService(
         var nowUtc = DateTimeOffset.UtcNow;
         evidence.PracticalScore = (int)Math.Round(rubric.Average(x => RatingScore(x.Rating)));
         evidence.FinalScore = (int)Math.Round(evidence.KnowledgeScore * 0.4 + evidence.PracticalScore * 0.6);
-        evidence.SupervisorFeedback = feedback?.Trim();
+        evidence.OverallAssessment = overallAssessment;
+        evidence.ObservedStrength = observedStrength;
+        evidence.OverallEvidence = NormalizeOptional(overallEvidence);
+        evidence.MainImprovement = overallAssessment == OverallAssessmentValue.NeedsImprovement
+            ? NormalizeOptional(mainImprovement)
+            : null;
+        evidence.SupervisorFeedback = NormalizeOptional(feedback);
         evidence.SupervisorSubmittedAt = nowUtc;
         evidence.CompletedAt = nowUtc;
         evidence.SupervisorIp = current.Ip;
@@ -355,8 +387,110 @@ public class TrainingWorkflowService(
             + (evidence.PossibleSharedDevice ? " Coincidencia de dispositivo detectada." : string.Empty),
             evidence.PossibleSharedDevice ? AuditSeverity.Warning : AuditSeverity.Info);
 
+        await CreateRepeatedObservationAlertIfNeededAsync(evidence, rubric);
         return new(true, "Evidencia registrada. No se habilitan reintentos para esta actividad.");
     }
+
+    private async Task CreateRepeatedObservationAlertIfNeededAsync(
+        ActivityEvidence evidence,
+        IReadOnlyList<(string Criterion, bool IsCritical, RatingValue Rating, string? Observation, string? GuidanceProvided)> rubric)
+    {
+        var currentTexts = rubric
+            .SelectMany(x => new[] { x.Observation, x.GuidanceProvided })
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => NormalizeForComparison(x!))
+            .Distinct()
+            .ToList();
+        if (currentTexts.Count == 0) return;
+
+        var threshold = DateTimeOffset.UtcNow.AddDays(-30);
+        var recent = await db.RubricEvaluations
+            .AsNoTracking()
+            .Where(x => x.Evidence.Assignment.SupervisorId == evidence.Assignment.SupervisorId
+                && x.Evidence.SupervisorSubmittedAt >= threshold
+                && (x.Observation != null || x.GuidanceProvided != null))
+            .Select(x => new
+            {
+                x.Observation,
+                x.GuidanceProvided,
+                x.Evidence.Assignment.CollaboratorId,
+                Collaborator = x.Evidence.Assignment.Collaborator.FullName,
+                x.Evidence.Sequence,
+                x.Evidence.SupervisorSubmittedAt
+            })
+            .ToListAsync();
+
+        foreach (var normalizedText in currentTexts)
+        {
+            var matches = recent
+                .Where(x => (!string.IsNullOrWhiteSpace(x.Observation) && NormalizeForComparison(x.Observation) == normalizedText)
+                    || (!string.IsNullOrWhiteSpace(x.GuidanceProvided) && NormalizeForComparison(x.GuidanceProvided) == normalizedText))
+                .GroupBy(x => x.CollaboratorId)
+                .Select(x => x.OrderByDescending(y => y.SupervisorSubmittedAt).First())
+                .ToList();
+            if (matches.Count < 3) continue;
+
+            var fingerprint = Convert.ToHexString(SHA256.HashData(
+                Encoding.UTF8.GetBytes($"{evidence.Assignment.SupervisorId}:{normalizedText}"))).ToLowerInvariant();
+            var fingerprintMarker = $"Huella:{fingerprint}";
+            var alertExists = await db.AuditLogs.AnyAsync(x =>
+                x.Action == "REPEATED_SUPERVISOR_OBSERVATION"
+                && x.EntityId == evidence.Assignment.SupervisorId.ToString()
+                && x.CreatedAt >= threshold
+                && x.Detail.Contains(fingerprintMarker));
+            if (alertExists) continue;
+
+            var supervisorName = await db.Users.AsNoTracking()
+                .Where(x => x.Id == evidence.Assignment.SupervisorId)
+                .Select(x => x.FullName)
+                .FirstAsync();
+            var cases = string.Join(" | ", matches.Select(x =>
+                $"{x.Collaborator} (actividad {x.Sequence}, {x.SupervisorSubmittedAt:dd/MM/yyyy})"));
+            var visibleText = normalizedText.Length <= 180 ? normalizedText : normalizedText[..180] + "…";
+            var detail = $"Posible registro repetitivo del supervisor {supervisorName}. Texto: \"{visibleText}\". Casos: {cases}. {fingerprintMarker}";
+            if (detail.Length > 1200) detail = detail[..1200];
+            await audit.WriteAsync(
+                "REPEATED_SUPERVISOR_OBSERVATION",
+                nameof(AppUser),
+                evidence.Assignment.SupervisorId,
+                detail,
+                AuditSeverity.Warning);
+        }
+    }
+
+    private static string? StructuredTextError(string? value, string fieldName)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return $"Completa el campo {fieldName}.";
+
+        var trimmed = value.Trim();
+        if (trimmed.Length > 500)
+            return $"El campo {fieldName} no puede superar los 500 caracteres.";
+
+        var words = trimmed.Split(
+            [' ', '\r', '\n', '\t', '.', ',', ';', ':', '-', '!', '?'],
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var normalized = NormalizeForComparison(trimmed);
+        string[] genericResponses =
+        [
+            "mejorar", "mal", "bien", "todo bien", "cumple", "cumplio", "sin observaciones",
+            "ninguna", "ninguno", "ok", "correcto", "debe mejorar", "tiene que mejorar",
+            "debe mejorar en su trabajo", "tiene que mejorar su trabajo"
+        ];
+        if (trimmed.Length < 25 || words.Length < 5 || words.Distinct(StringComparer.OrdinalIgnoreCase).Count() < 3
+            || genericResponses.Contains(normalized))
+            return $"El campo {fieldName} debe describir una situación concreta en al menos cinco palabras; evita respuestas genéricas como 'mejorar' o 'todo bien'.";
+
+        return null;
+    }
+
+    private static string NormalizeForComparison(string value) => string.Join(' ', value
+        .Trim()
+        .ToLowerInvariant()
+        .Split([' ', '\r', '\n', '\t'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+
+    private static string? NormalizeOptional(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     public async Task<(WorkflowResult Result, FinalExamAttempt? Attempt)> StartFinalExamAsync(
         int assignmentId,

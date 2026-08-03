@@ -99,11 +99,16 @@ public class SupervisorController(
             return RedirectToAction(nameof(Review), new { id = model.EvidenceId, supervisorId = model.DashboardSupervisorId });
         }
         var safeRubric = canonical.Select((item, index) =>
-            (item.Criterion, item.IsCritical, model.Items[index].Rating, model.Items[index].Observation)).ToList();
+            (item.Criterion, item.IsCritical, model.Items[index].Rating,
+                model.Items[index].Observation, model.Items[index].GuidanceProvided)).ToList();
         var result = await workflow.SubmitSupervisorReviewAsync(
             model.EvidenceId,
             current.UserId!.Value,
             safeRubric,
+            model.OverallAssessment,
+            model.ObservedStrength,
+            model.OverallEvidence,
+            model.MainImprovement,
             model.Feedback ?? string.Empty);
         TempData[result.Success ? "Success" : "Error"] = result.Message;
         if (!result.Success)

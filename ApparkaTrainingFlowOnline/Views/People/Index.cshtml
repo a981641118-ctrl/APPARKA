@@ -8,6 +8,19 @@
 {
     <section class="card activation-card"><h2>Enlace temporal de acceso</h2><p>Envíalo únicamente a la persona correspondiente. El enlace anterior queda reemplazado.</p><div class="copy-row"><input id="activationLink" readonly value="@link" /><button class="button secondary" type="button" onclick="copyField('activationLink')">Copiar</button></div></section>
 }
+@if (Model.RepeatedObservationAlerts.Count > 0)
+{
+    <section class="card repeated-alerts">
+        <div class="section-title"><div><p class="eyebrow">CONTROL DE CALIDAD</p><h2>Observaciones repetidas</h2></div><span class="count-badge">@Model.RepeatedObservationAlerts.Count</span></div>
+        <p class="muted">Estas alertas no bloquean evaluaciones. Permiten revisar si un supervisor reutilizó el mismo texto en tres o más colaboradores durante 30 días.</p>
+        <div class="audit-timeline">
+        @foreach (var alert in Model.RepeatedObservationAlerts)
+        {
+            <article class="audit-entry warning"><span class="audit-dot"></span><div><strong>@alert.SupervisorName</strong><p>@alert.Observation</p><small>@alert.CreatedAt.ToString("dd/MM/yyyy HH:mm")</small></div></article>
+        }
+        </div>
+    </section>
+}
 <section class="card"><div class="section-title"><div><p class="eyebrow">RESPONSABLES</p><h2>Supervisores</h2></div><span class="count-badge">@Model.Supervisors.Count</span></div>
 <div class="management-list">
 @foreach (var row in Model.Supervisors)

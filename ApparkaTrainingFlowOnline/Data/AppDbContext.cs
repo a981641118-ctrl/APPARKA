@@ -58,6 +58,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<TrainingAssignment>().Property(x => x.Status).HasConversion<string>();
         modelBuilder.Entity<ActivityEvidence>().Property(x => x.Status).HasConversion<string>();
+        modelBuilder.Entity<ActivityEvidence>().Property(x => x.OverallAssessment).HasConversion<string>();
+        modelBuilder.Entity<ActivityEvidence>().Property(x => x.ObservedStrength).HasConversion<string>();
         modelBuilder.Entity<RubricEvaluation>().Property(x => x.Rating).HasConversion<string>();
         modelBuilder.Entity<AuditLog>().Property(x => x.Severity).HasConversion<string>();
     }

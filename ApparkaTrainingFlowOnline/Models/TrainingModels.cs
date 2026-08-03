@@ -65,6 +65,10 @@ public class ActivityEvidence
     [MaxLength(80)] public string? SupervisorDeviceId { get; set; }
     public bool PossibleSharedDevice { get; set; }
     [MaxLength(1000)] public string? SupervisorFeedback { get; set; }
+    public OverallAssessmentValue OverallAssessment { get; set; }
+    public ObservedStrengthValue ObservedStrength { get; set; }
+    [MaxLength(500)] public string? OverallEvidence { get; set; }
+    [MaxLength(500)] public string? MainImprovement { get; set; }
     public ICollection<ActivityAnswer> Answers { get; set; } = [];
     public ICollection<ActivityQuestionSelection> QuestionSelections { get; set; } = [];
     public ICollection<RubricEvaluation> Rubric { get; set; } = [];
@@ -120,6 +124,7 @@ public class RubricEvaluation
     public bool IsCritical { get; set; }
     public RatingValue Rating { get; set; }
     [MaxLength(500)] public string? Observation { get; set; }
+    [MaxLength(500)] public string? GuidanceProvided { get; set; }
 }
 
 public class ValidationSession
