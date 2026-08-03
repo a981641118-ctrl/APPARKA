@@ -52,6 +52,10 @@ public class TrainingScheduleService(AppDbContext db, PeruClock clock)
 
         foreach (var activity in assignment.Activities.OrderBy(x => x.Sequence))
         {
+            // Corrige estados antiguos o desfasados: una actividad futura nunca debe mostrarse como disponible.
+            if (activity.Status == EvidenceStatus.Available && now < activity.AvailableFrom)
+                activity.Status = EvidenceStatus.Scheduled;
+
             if (activity.Status == EvidenceStatus.Scheduled && now >= activity.AvailableFrom)
             {
                 var previousCompleted = activity.Sequence == 1 || assignment.Activities

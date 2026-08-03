@@ -13,7 +13,7 @@
 <body>
     <header class="topbar">
         <a class="brand" asp-controller="Home" asp-action="Index">
-            <span class="brand-logo" role="img" aria-label="Apparka Training Flow"><img src="~/images/apparka-training-flow-brand.png" alt="" /></span>
+            <span class="brand-logo"><img src="~/images/apparka-training-flow-logo-inverse.svg" asp-append-version="true" alt="Apparka Training Flow" /></span>
         </a>
         @if (User.Identity?.IsAuthenticated == true)
         {

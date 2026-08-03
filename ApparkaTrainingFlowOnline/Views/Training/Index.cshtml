@@ -3,8 +3,10 @@
 @{ ViewData["Title"] = "Mi entrenamiento"; var materials = ViewBag.Materials as IReadOnlyList<LearningMaterial> ?? new List<LearningMaterial>(); var completedMaterials = ViewBag.CompletedMaterials as IReadOnlyList<int> ?? new List<int>(); var today = ViewBag.Today is DateOnly date ? date : DateOnly.FromDateTime(DateTime.UtcNow.AddHours(-5)); var completed = Model.Activities.Count(x => x.Status == EvidenceStatus.Completed); var progress = completed * 100 / 6; }
 <section class="hero-card" data-tour-target="overview">
     <div><p class="eyebrow">PERIODO DE PRUEBA</p><h1>Hola, @Model.Collaborator.FullName.Split(' ')[0]</h1><p>@Model.Position.Name · @Model.Location.Name</p></div>
-    <div class="progress-ring" style="--progress:@progress"><strong>@progress%</strong><span>avance</span></div>
-    <button class="tour-launch" type="button" data-tour-start aria-label="Abrir guía interactiva">? <span>Ver guía</span></button>
+    <div class="hero-tools">
+        <div class="progress-ring" style="--progress:@progress"><div><strong>@progress%</strong><span>avance</span></div></div>
+        <button class="tour-launch" type="button" data-tour-start aria-label="Abrir guía interactiva"><span class="tour-launch-icon">?</span><span>Ver guía</span></button>
+    </div>
 </section>
 @if (today < Model.StartDate)
 {
@@ -17,7 +19,7 @@
 {
     <section class="card resume-card" data-tour-target="resume"><div><span class="status inprogress">Actividad no terminada</span><h2>@resume.Template.Title</h2><p>@(resume.Status == EvidenceStatus.AwaitingSupervisor ? "Ya respondiste. Falta la validación práctica del supervisor." : "Puedes continuar desde donde quedaste.")</p></div><a class="button primary" asp-action="Activity" asp-route-id="@resume.Id">Retomar</a></section>
 }
-<section class="section-block" data-tour-target="route"><div class="section-title"><div><p class="eyebrow">RUTA DE APRENDIZAJE</p><h2>Tres semanas · seis evidencias</h2></div><span class="count-badge">@completed/6</span></div>
+<section class="section-block"><div class="section-title" data-tour-target="route"><div><p class="eyebrow">RUTA DE APRENDIZAJE</p><h2>Tres semanas · seis evidencias</h2></div><span class="count-badge">@completed/6</span></div>
 @for (var week = 1; week <= 3; week++)
 {
     <div class="week-block"><h3>Semana @week</h3><div class="activity-grid">
@@ -34,7 +36,7 @@
     </div></div>
 }
 </section>
-<section class="section-block" data-tour-target="materials"><div class="section-title"><div><p class="eyebrow">MATERIAL PREVIO</p><h2>Información para estudiar</h2></div></div><div class="card-grid">
+<section class="section-block"><div class="section-title" data-tour-target="materials"><div><p class="eyebrow">MATERIAL PREVIO</p><h2>Información para estudiar</h2></div></div><div class="card-grid">
 @foreach (var material in materials)
 {
     var materialDone = completedMaterials.Contains(material.Id);

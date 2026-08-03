@@ -165,6 +165,30 @@ document.querySelectorAll('[data-supervisor-review]').forEach(form => {
     updateOverall();
 });
 
+document.querySelectorAll('[data-supervisor-motivator]').forEach(motivator => {
+    const toggle = motivator.querySelector('[data-motivator-toggle]');
+    const message = motivator.querySelector('[data-motivator-message]');
+    const closeButton = motivator.querySelector('[data-motivator-close]');
+
+    const setOpen = open => {
+        motivator.classList.toggle('is-open', open);
+        message.hidden = !open;
+        toggle.setAttribute('aria-expanded', String(open));
+        toggle.setAttribute('aria-label', open ? 'Ocultar mensaje motivacional' : 'Mostrar mensaje motivacional');
+    };
+
+    toggle.addEventListener('click', event => {
+        event.stopPropagation();
+        setOpen(message.hidden);
+    });
+    closeButton.addEventListener('click', () => setOpen(false));
+    message.addEventListener('click', event => event.stopPropagation());
+    document.addEventListener('click', () => setOpen(false));
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape') setOpen(false);
+    });
+});
+
 document.querySelectorAll('[data-collaborator-tour]').forEach(tour => {
     const storageKey = `apparka-collaborator-tour-v1-${tour.dataset.tourUser ?? 'current'}`;
     const steps = [
@@ -181,6 +205,7 @@ document.querySelectorAll('[data-collaborator-tour]').forEach(tour => {
     const counter = tour.querySelector('[data-tour-counter]');
     const previous = tour.querySelector('[data-tour-previous]');
     const next = tour.querySelector('[data-tour-next]');
+    const dialog = tour.querySelector('.tour-dialog');
     let current = 0;
 
     const clearHighlight = () => document.querySelectorAll('.tour-highlight').forEach(element => element.classList.remove('tour-highlight'));
@@ -190,17 +215,47 @@ document.querySelectorAll('[data-collaborator-tour]').forEach(tour => {
         document.body.classList.remove('tour-open');
         localStorage.setItem(storageKey, 'completed');
     };
+
+    const placeDialog = target => {
+        const targetRect = target.getBoundingClientRect();
+        const dialogHeight = dialog.offsetHeight;
+        const gap = 16;
+        const edge = 12;
+        const roomBelow = window.innerHeight - targetRect.bottom;
+        const roomAbove = targetRect.top;
+        let top;
+
+        if (roomBelow >= dialogHeight + gap) {
+            top = targetRect.bottom + gap;
+            dialog.dataset.placement = 'below';
+        } else if (roomAbove >= dialogHeight + gap) {
+            top = targetRect.top - dialogHeight - gap;
+            dialog.dataset.placement = 'above';
+        } else {
+            top = Math.max(edge, window.innerHeight - dialogHeight - edge);
+            dialog.dataset.placement = 'floating';
+        }
+
+        dialog.style.top = `${Math.max(edge, Math.min(top, window.innerHeight - dialogHeight - edge))}px`;
+    };
+
     const render = () => {
         clearHighlight();
         const step = steps[current];
         if (!step) return close();
-        step.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const topbarHeight = document.querySelector('.topbar')?.offsetHeight ?? 0;
+        const targetTop = step.target.getBoundingClientRect().top + window.scrollY;
+        const previousScrollBehavior = document.documentElement.style.scrollBehavior;
+        document.documentElement.style.scrollBehavior = 'auto';
+        window.scrollTo(0, Math.max(0, targetTop - topbarHeight - 18));
+        document.documentElement.style.scrollBehavior = previousScrollBehavior;
         step.target.classList.add('tour-highlight');
         title.textContent = step.title;
         text.textContent = step.text;
         counter.textContent = `PASO ${current + 1} DE ${steps.length}`;
         previous.hidden = current === 0;
         next.textContent = current === steps.length - 1 ? 'Finalizar' : 'Siguiente';
+        requestAnimationFrame(() => requestAnimationFrame(() => placeDialog(step.target)));
     };
     const start = () => {
         if (steps.length === 0) return;
@@ -215,6 +270,9 @@ document.querySelectorAll('[data-collaborator-tour]').forEach(tour => {
     previous.addEventListener('click', () => { if (current > 0) { current--; render(); } });
     next.addEventListener('click', () => { if (current >= steps.length - 1) close(); else { current++; render(); } });
     document.addEventListener('keydown', event => { if (event.key === 'Escape' && !tour.hidden) close(); });
+    window.addEventListener('resize', () => {
+        if (!tour.hidden && steps[current]) placeDialog(steps[current].target);
+    });
 
     if (!localStorage.getItem(storageKey)) setTimeout(start, 700);
 });

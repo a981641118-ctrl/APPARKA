@@ -2,7 +2,7 @@
 @{ ViewData["Title"] = "Bienvenido"; }
 <div class="welcome-overlay" role="dialog" aria-modal="true" aria-labelledby="welcomeTitle">
     <section class="welcome-dialog">
-        <div class="auth-brand"><span class="brand-logo large" role="img" aria-label="Apparka Training Flow"><img src="~/images/apparka-training-flow-brand.png" alt="" /></span></div>
+        <div class="auth-brand"><span class="brand-logo large"><img src="~/images/apparka-training-flow-logo.svg" asp-append-version="true" alt="Apparka Training Flow" /></span></div>
         <p class="eyebrow">TU NUEVA ETAPA COMIENZA AQUÍ</p>
         <h1 id="welcomeTitle">¡Bienvenido, @Model.FullName.Split(' ', StringSplitOptions.RemoveEmptyEntries)[0]!</h1>
         <p>Queremos contar contigo y confiamos en todo lo que puedes lograr. Durante estas semanas te acompañaremos para que conozcas tus funciones, desarrolles tus habilidades y empieces esta etapa con seguridad.</p>

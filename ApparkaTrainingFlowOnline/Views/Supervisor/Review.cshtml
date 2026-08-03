@@ -2,9 +2,15 @@
 @{ ViewData["Title"] = "Validar práctica"; }
 <section class="page-header"><p class="eyebrow">VALIDACIÓN INDEPENDIENTE</p><h1>@Model.Evidence.Assignment.Collaborator.FullName</h1><p>@Model.Evidence.Template.Title</p></section>
 <section class="card challenge-card"><span>RETO PRÁCTICO ASIGNADO</span><h2>@(Model.Evidence.AssignedChallenge ?? Model.Evidence.Template.PracticalChallenge)</h2><p>El colaborador ya respondió el cuestionario con @Model.Evidence.KnowledgeScore%. Evalúa la ejecución observada; no vuelvas a realizarle las preguntas.</p></section>
-<aside class="supervisor-motivator" tabindex="0" aria-label="Mensaje para el supervisor">
-    <img src="~/images/motivation-helper.png" alt="" />
-    <span class="motivator-message" role="tooltip"><strong>Tu observación sí importa</strong> Describe lo que realmente viste: una evaluación clara ayuda al colaborador a crecer.</span>
+<aside class="supervisor-motivator" data-supervisor-motivator>
+    <button class="motivator-toggle" type="button" data-motivator-toggle aria-expanded="false" aria-controls="supervisorMotivatorMessage" aria-label="Mostrar mensaje motivacional">
+        <img src="~/images/motivation-helper.png" alt="" />
+    </button>
+    <div class="motivator-message" id="supervisorMotivatorMessage" data-motivator-message hidden>
+        <button class="motivator-close" type="button" data-motivator-close aria-label="Cerrar mensaje">×</button>
+        <strong>Tu observación sí importa</strong>
+        <p>Describe lo que realmente viste. Una evaluación clara ayuda al colaborador a crecer y confirma que el entrenamiento se cumplió responsablemente.</p>
+    </div>
 </aside>
 <form asp-action="Review" method="post" class="card form-card supervisor-review-form" data-supervisor-review>
     <input asp-for="EvidenceId" type="hidden" />
