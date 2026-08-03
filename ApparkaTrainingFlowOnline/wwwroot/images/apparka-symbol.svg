@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 74 74" role="img" aria-labelledby="apparkaSymbolTitle">
+  <title id="apparkaSymbolTitle">Símbolo de Apparka</title>
+  <defs>
+    <linearGradient id="apparkaSymbolViolet" x1="7" y1="72" x2="43" y2="2" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#35009a"/>
+      <stop offset="0.56" stop-color="#4700bd"/>
+      <stop offset="1" stop-color="#5600d2"/>
+    </linearGradient>
+    <linearGradient id="apparkaSymbolRibbon" x1="7" y1="68" x2="73" y2="11" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4000b5"/>
+      <stop offset="0.42" stop-color="#8b1bd5"/>
+      <stop offset="0.78" stop-color="#d746d7"/>
+      <stop offset="1" stop-color="#f555bf"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#apparkaSymbolViolet)" d="M.7 68.2 25.6 5.1C27.4.6 33.4-1.2 37.2 1.7c1.1.8 2 1.9 2.7 3.1l12.8 22.3-12 10.8-7.2-13.1-15.7 44.4c-1.5 4.2-6.7 5-12.8 4.4-4.1-.4-5.7-2.1-4.3-5.4Z"/>
+  <path fill="#2b037c" d="m38.2 36.9 34 30.7c2.5 2.3.9 6.4-2.5 6.4H58.1c-3 0-5.1-1.2-6.7-3.8L30.8 49.7Z"/>
+  <path fill="url(#apparkaSymbolRibbon)" d="M1.7 67.9C18 60.8 33.2 49.9 47.8 36.2L74 10.6c-3.5 13.7-10.5 27.2-21.6 38.2C40.3 60.9 25.8 69.2 10 73c-4.1 1-7.5-.8-8.3-5.1Z"/>
+  <path fill="#2d0381" d="m25.7 5.2 7.8 19.6 12.2-9.1-5.8-10.9C36.8-.9 28.2-.6 25.7 5.2Z" opacity=".92"/>
+</svg>
