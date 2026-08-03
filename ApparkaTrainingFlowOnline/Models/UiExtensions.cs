@@ -33,6 +33,25 @@ public static class UiExtensions
         _ => value.ToString()
     };
 
+    public static string Label(this OverallAssessmentValue value) => value switch
+    {
+        OverallAssessmentValue.Outstanding => "Desempeño destacado",
+        OverallAssessmentValue.Expected => "Cumplimiento esperado",
+        OverallAssessmentValue.NeedsImprovement => "Requiere mejora",
+        _ => "Sin evaluación"
+    };
+
+    public static string Label(this ObservedStrengthValue value) => value switch
+    {
+        ObservedStrengthValue.Procedure => "Aplicación del procedimiento",
+        ObservedStrengthValue.Safety => "Seguridad y prevención",
+        ObservedStrengthValue.SystemOrEquipment => "Uso del sistema o equipo",
+        ObservedStrengthValue.CustomerService => "Atención al cliente",
+        ObservedStrengthValue.VerificationAndRecord => "Verificación y registro",
+        ObservedStrengthValue.NoDistinctStrength => "No se identificó una fortaleza diferenciada",
+        _ => "Sin selección"
+    };
+
     public static string RoleLabel(this string role) => role switch
     {
         AppRoles.Administrator => "Administrador",

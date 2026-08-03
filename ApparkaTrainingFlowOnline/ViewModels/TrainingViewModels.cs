@@ -16,6 +16,10 @@ public class SupervisorReviewViewModel
     public int? DashboardSupervisorId { get; set; }
     public ActivityEvidence Evidence { get; set; } = null!;
     public List<RubricInput> Items { get; set; } = [];
+    public OverallAssessmentValue OverallAssessment { get; set; }
+    public ObservedStrengthValue ObservedStrength { get; set; }
+    public string? OverallEvidence { get; set; }
+    public string? MainImprovement { get; set; }
     public string Feedback { get; set; } = string.Empty;
 }
 
@@ -25,6 +29,7 @@ public class RubricInput
     public bool IsCritical { get; set; }
     public RatingValue Rating { get; set; }
     public string? Observation { get; set; }
+    public string? GuidanceProvided { get; set; }
 }
 
 public class FinalExamViewModel

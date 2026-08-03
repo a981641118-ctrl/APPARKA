@@ -2,22 +2,35 @@
 @{ ViewData["Title"] = "Validar práctica"; }
 <section class="page-header"><p class="eyebrow">VALIDACIÓN INDEPENDIENTE</p><h1>@Model.Evidence.Assignment.Collaborator.FullName</h1><p>@Model.Evidence.Template.Title</p></section>
 <section class="card challenge-card"><span>RETO PRÁCTICO ASIGNADO</span><h2>@(Model.Evidence.AssignedChallenge ?? Model.Evidence.Template.PracticalChallenge)</h2><p>El colaborador ya respondió el cuestionario con @Model.Evidence.KnowledgeScore%. Evalúa la ejecución observada; no vuelvas a realizarle las preguntas.</p></section>
-<form asp-action="Review" method="post" class="card form-card">
+<form asp-action="Review" method="post" class="card form-card supervisor-review-form" data-supervisor-review>
     <input asp-for="EvidenceId" type="hidden" />
     <input asp-for="DashboardSupervisorId" type="hidden" />
     <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
     @for (var i = 0; i < Model.Items.Count; i++)
     {
-        <div class="rubric-row">
+        <div class="rubric-row" data-rubric-row>
             <input asp-for="Items[i].Criterion" type="hidden" />
             <input asp-for="Items[i].IsCritical" type="hidden" />
             <div><strong>@Model.Items[i].Criterion</strong>@if(Model.Items[i].IsCritical){<span class="critical">Crítico</span>}</div>
-            <select asp-for="Items[i].Rating" asp-items="Html.GetEnumSelectList<RatingValue>()"></select>
-            <textarea asp-for="Items[i].Observation" placeholder="Observación obligatoria si no cumple totalmente"></textarea>
+            <select asp-for="Items[i].Rating" asp-items="Html.GetEnumSelectList<RatingValue>()" data-rubric-rating aria-label="Calificación del criterio"></select>
+            <div class="rubric-details" data-rubric-details hidden>
+                <div><label asp-for="Items[i].Observation">Hecho observado</label><textarea asp-for="Items[i].Observation" rows="3" minlength="25" maxlength="500" placeholder="Describe qué ocurrió, en qué momento y cómo afectó la ejecución."></textarea><small>Mínimo cinco palabras y una situación concreta.</small></div>
+                <div><label asp-for="Items[i].GuidanceProvided">Orientación brindada</label><textarea asp-for="Items[i].GuidanceProvided" rows="3" minlength="25" maxlength="500" placeholder="Indica qué explicación, corrección o indicación le brindaste."></textarea><small>No se aceptan respuestas genéricas como “mejorar” o “mal”.</small></div>
+            </div>
         </div>
     }
-    <label asp-for="Feedback">Retroalimentación final</label>
-    <textarea asp-for="Feedback" rows="4" placeholder="Indica fortalezas y aspectos que debe recordar para el examen final."></textarea>
+    <section class="overall-evaluation" data-overall-evaluation>
+        <div><p class="eyebrow">CIERRE DE LA OBSERVACIÓN</p><h2>Evaluación general obligatoria</h2><p class="muted">Resume el desempeño observado durante la tarea práctica. La plataforma no te obliga a inventar una fortaleza.</p></div>
+        <div class="form-grid">
+            <div><label asp-for="OverallAssessment">Resultado general</label><select asp-for="OverallAssessment" asp-items="Html.GetEnumSelectList<OverallAssessmentValue>()" data-overall-assessment></select></div>
+            <div><label asp-for="ObservedStrength" data-strength-label>Principal fortaleza o aspecto correcto</label><select asp-for="ObservedStrength" asp-items="Html.GetEnumSelectList<ObservedStrengthValue>()" data-observed-strength></select></div>
+            <div class="full-column"><label asp-for="OverallEvidence" data-overall-evidence-label>Evidencia que sustenta la evaluación</label><textarea asp-for="OverallEvidence" rows="3" minlength="25" maxlength="500" required placeholder="Describe una conducta concreta observada durante la ejecución."></textarea><small>Mínimo cinco palabras y una situación concreta.</small></div>
+            <div class="full-column" data-improvement-field hidden><label asp-for="MainImprovement">Aspecto principal por mejorar</label><textarea asp-for="MainImprovement" rows="3" minlength="25" maxlength="500" placeholder="Explica qué debe reforzar y cómo impactó en la tarea."></textarea><small>Obligatorio cuando el resultado general es “Requiere mejora”.</small></div>
+        </div>
+        <div class="evaluation-suggestion" data-evaluation-suggestion>Completa primero los cinco criterios para recibir una orientación del sistema.</div>
+    </section>
+    <label asp-for="Feedback">Comentario adicional <span class="optional-label">Opcional</span></label>
+    <textarea asp-for="Feedback" rows="3" maxlength="1000" placeholder="Añade información complementaria que no haya quedado registrada arriba."></textarea>
     <div class="info-box"><strong>Esta evidencia no tiene reintento</strong><p>Al guardar, se registrarán el porcentaje y los errores. El examen final será la única etapa con hasta tres intentos.</p></div>
     <div class="form-actions"><a class="button ghost" asp-action="Dashboard" asp-route-supervisorId="@Model.DashboardSupervisorId">Cancelar</a><button class="button primary" type="submit">Cerrar evidencia</button></div>
 </form>

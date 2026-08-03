@@ -19,6 +19,15 @@ public class PeopleIndexViewModel
 {
     public IReadOnlyList<PersonRowViewModel> Supervisors { get; set; } = [];
     public IReadOnlyList<PersonRowViewModel> Collaborators { get; set; } = [];
+    public IReadOnlyList<RepeatedObservationAlertViewModel> RepeatedObservationAlerts { get; set; } = [];
+}
+
+public class RepeatedObservationAlertViewModel
+{
+    public string SupervisorName { get; set; } = string.Empty;
+    public string Observation { get; set; } = string.Empty;
+    public string Collaborators { get; set; } = string.Empty;
+    public DateTimeOffset CreatedAt { get; set; }
 }
 
 public class PersonRowViewModel

@@ -38,6 +38,19 @@ public class PeopleController(
             .Where(x => collaboratorIds.Contains(x.CollaboratorId))
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
+        var repeatedObservationAlerts = await db.AuditLogs.AsNoTracking()
+            .Where(x => x.Action == "REPEATED_SUPERVISOR_OBSERVATION")
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(20)
+            .ToListAsync();
+        var supervisorIds = repeatedObservationAlerts
+            .Select(x => int.TryParse(x.EntityId, out var id) ? id : 0)
+            .Where(x => x > 0)
+            .Distinct()
+            .ToList();
+        var supervisorNames = await db.Users.AsNoTracking()
+            .Where(x => supervisorIds.Contains(x.Id))
+            .ToDictionaryAsync(x => x.Id, x => x.FullName);
 
         return View(new PeopleIndexViewModel
         {
@@ -57,6 +70,16 @@ public class PeopleController(
                     Detail = assignment is null
                         ? "Sin periodo asignado"
                         : $"{assignment.Location.Name} · Supervisor: {assignment.Supervisor.FullName}"
+                };
+            }).ToList(),
+            RepeatedObservationAlerts = repeatedObservationAlerts.Select(x =>
+            {
+                var supervisorId = int.TryParse(x.EntityId, out var id) ? id : 0;
+                return new RepeatedObservationAlertViewModel
+                {
+                    SupervisorName = supervisorNames.GetValueOrDefault(supervisorId, "Supervisor no disponible"),
+                    Observation = x.Detail,
+                    CreatedAt = x.CreatedAt
                 };
             }).ToList()
         });

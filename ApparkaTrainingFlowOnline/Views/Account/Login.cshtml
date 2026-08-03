@@ -13,7 +13,7 @@
             <input asp-for="Email" autocomplete="username" placeholder="nombre@empresa.com" />
             <span asp-validation-for="Email"></span>
             <label asp-for="Password">Contraseña</label>
-            <input asp-for="Password" autocomplete="current-password" placeholder="••••••••" />
+            <div class="password-field"><input asp-for="Password" autocomplete="current-password" placeholder="••••••••" /><button type="button" class="password-toggle" data-password-toggle aria-label="Mostrar contraseña" title="Mostrar contraseña"><span aria-hidden="true">👁</span></button></div>
             <span asp-validation-for="Password"></span>
             <button class="button primary full" type="submit">Ingresar</button>
             <a class="auth-help-link" asp-action="ForgotPassword">¿Olvidaste tu contraseña?</a>
