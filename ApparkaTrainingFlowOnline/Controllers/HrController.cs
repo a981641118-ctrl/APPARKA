@@ -51,11 +51,12 @@ public class HrController(
             model.PositionId = position.Id;
         if (model.AccessFrom.Date > model.StartDate.Date)
             ModelState.AddModelError(nameof(model.AccessFrom), "El acceso previo no puede ser posterior al inicio.");
-        if (await db.Users.AnyAsync(x => x.Email == model.Email.Trim().ToLower()))
+        var normalizedEmail = model.Email?.Trim().ToLowerInvariant() ?? string.Empty;
+        if (await db.Users.AnyAsync(x => x.Email == normalizedEmail))
             ModelState.AddModelError(nameof(model.Email), "Ya existe un usuario con este correo.");
-        var employeeCode = string.IsNullOrWhiteSpace(model.EmployeeCode) ? null : model.EmployeeCode.Trim().ToUpperInvariant();
-        if (employeeCode is not null && await db.Users.AnyAsync(x => x.EmployeeCode == employeeCode))
-            ModelState.AddModelError(nameof(model.EmployeeCode), "El código interno o documento ya está registrado.");
+        var identityDocument = model.IdentityDocument?.Trim().ToUpperInvariant() ?? string.Empty;
+        if (await db.Users.AnyAsync(x => x.EmployeeCode == identityDocument))
+            ModelState.AddModelError(nameof(model.IdentityDocument), "Este documento de identidad ya está registrado.");
         if (!await db.Locations.AnyAsync(x => x.Id == model.LocationId && x.IsActive))
             ModelState.AddModelError(nameof(model.LocationId), "Selecciona una sede activa.");
         if (!await db.SupervisorLocations.AnyAsync(x => x.SupervisorId == model.SupervisorId && x.LocationId == model.LocationId))
@@ -69,9 +70,9 @@ public class HrController(
         var user = new AppUser
         {
             FullName = model.FullName.Trim(),
-            Email = model.Email.Trim().ToLowerInvariant(),
-            EmployeeCode = employeeCode,
-            Phone = string.IsNullOrWhiteSpace(model.Phone) ? null : model.Phone.Trim(),
+            Email = normalizedEmail,
+            EmployeeCode = identityDocument,
+            Phone = null,
             Role = AppRoles.Collaborator,
             ActivationToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(24)).ToLowerInvariant(),
             ActivationExpiresAt = DateTimeOffset.UtcNow.AddDays(14),

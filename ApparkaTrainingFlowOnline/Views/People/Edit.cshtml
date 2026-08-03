@@ -7,8 +7,11 @@
     <div class="form-grid">
         <div><label asp-for="FullName">Nombres y apellidos</label><input asp-for="FullName" /><span asp-validation-for="FullName"></span></div>
         <div><label asp-for="Email">Correo</label><input asp-for="Email" /><span asp-validation-for="Email"></span></div>
-        <div><label asp-for="EmployeeCode">Código interno o documento</label><input asp-for="EmployeeCode" /><span asp-validation-for="EmployeeCode"></span></div>
-        <div><label asp-for="Phone">Teléfono</label><input asp-for="Phone" inputmode="tel" /><span asp-validation-for="Phone"></span></div>
+        <div><label asp-for="EmployeeCode">@(Model.Role == AppRoles.Collaborator ? "Documento de identidad" : "Código interno o documento")</label><input asp-for="EmployeeCode" /><span asp-validation-for="EmployeeCode"></span></div>
+        @if (Model.Role != AppRoles.Collaborator)
+        {
+            <div><label asp-for="Phone">Teléfono</label><input asp-for="Phone" inputmode="tel" /><span asp-validation-for="Phone"></span></div>
+        }
     </div>
     @if (isSupervisor)
     {

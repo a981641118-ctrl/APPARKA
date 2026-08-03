@@ -73,7 +73,21 @@
 @foreach (var assignment in Model.Assignments)
 {
     var completed = assignment.Activities.Count(x => x.Status == EvidenceStatus.Completed);
-    <div class="person-row"><div class="avatar">@assignment.Collaborator.FullName[0]</div><div class="grow"><strong>@assignment.Collaborator.FullName</strong><p>@assignment.Location.Name · @completed/6 evidencias@if(Model.IsAdministrator){<text> · Supervisor: @assignment.Supervisor.FullName</text>}</p><div class="progress"><span style="@($"width:{completed * 100 / 6}%")"></span></div></div><span class="status @assignment.Status.ToString().ToLowerInvariant()">@assignment.Status.Label()</span></div>
+    <div class="person-row">
+        <div class="avatar">@assignment.Collaborator.FullName[0]</div>
+        <div class="grow">
+            <strong>@assignment.Collaborator.FullName</strong>
+            <p>
+                <span>@assignment.Location.Name · @completed/6 evidencias</span>
+                @if (Model.IsAdministrator)
+                {
+                    <span> · Supervisor: @assignment.Supervisor.FullName</span>
+                }
+            </p>
+            <div class="progress"><span style="@($"width:{completed * 100 / 6}%")"></span></div>
+        </div>
+        <span class="status @assignment.Status.ToString().ToLowerInvariant()">@assignment.Status.Label()</span>
+    </div>
 }
 @if (!Model.Assignments.Any()) { <div class="person-row"><p class="muted">Este supervisor todavía no tiene periodos de entrenamiento asignados.</p></div> }
 </div></section>

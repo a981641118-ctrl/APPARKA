@@ -1,9 +1,12 @@
 @inject ApparkaTrainingFlowOnline.Services.PeruClock Clock
 @model TrainingAssignment
 @{ ViewData["Title"] = "Mi entrenamiento"; var materials = ViewBag.Materials as IReadOnlyList<LearningMaterial> ?? new List<LearningMaterial>(); var completedMaterials = ViewBag.CompletedMaterials as IReadOnlyList<int> ?? new List<int>(); var today = ViewBag.Today is DateOnly date ? date : DateOnly.FromDateTime(DateTime.UtcNow.AddHours(-5)); var completed = Model.Activities.Count(x => x.Status == EvidenceStatus.Completed); var progress = completed * 100 / 6; }
-<section class="hero-card">
+<section class="hero-card" data-tour-target="overview">
     <div><p class="eyebrow">PERIODO DE PRUEBA</p><h1>Hola, @Model.Collaborator.FullName.Split(' ')[0]</h1><p>@Model.Position.Name · @Model.Location.Name</p></div>
-    <div class="progress-ring" style="--progress:@progress"><strong>@progress%</strong><span>avance</span></div>
+    <div class="hero-tools">
+        <div class="progress-ring" style="--progress:@progress"><div><strong>@progress%</strong><span>avance</span></div></div>
+        <button class="tour-launch" type="button" data-tour-start aria-label="Abrir guía interactiva"><span class="tour-launch-icon">?</span><span>Ver guía</span></button>
+    </div>
 </section>
 @if (today < Model.StartDate)
 {
@@ -14,9 +17,9 @@
 }
 @if (resume is not null)
 {
-    <section class="card resume-card"><div><span class="status inprogress">Actividad no terminada</span><h2>@resume.Template.Title</h2><p>@(resume.Status == EvidenceStatus.AwaitingSupervisor ? "Ya respondiste. Falta la validación práctica del supervisor." : "Puedes continuar desde donde quedaste.")</p></div><a class="button primary" asp-action="Activity" asp-route-id="@resume.Id">Retomar</a></section>
+    <section class="card resume-card" data-tour-target="resume"><div><span class="status inprogress">Actividad no terminada</span><h2>@resume.Template.Title</h2><p>@(resume.Status == EvidenceStatus.AwaitingSupervisor ? "Ya respondiste. Falta la validación práctica del supervisor." : "Puedes continuar desde donde quedaste.")</p></div><a class="button primary" asp-action="Activity" asp-route-id="@resume.Id">Retomar</a></section>
 }
-<section class="section-block"><div class="section-title"><div><p class="eyebrow">RUTA DE APRENDIZAJE</p><h2>Tres semanas · seis evidencias</h2></div><span class="count-badge">@completed/6</span></div>
+<section class="section-block"><div class="section-title" data-tour-target="route"><div><p class="eyebrow">RUTA DE APRENDIZAJE</p><h2>Tres semanas · seis evidencias</h2></div><span class="count-badge">@completed/6</span></div>
 @for (var week = 1; week <= 3; week++)
 {
     <div class="week-block"><h3>Semana @week</h3><div class="activity-grid">
@@ -33,14 +36,14 @@
     </div></div>
 }
 </section>
-<section class="section-block"><div class="section-title"><div><p class="eyebrow">MATERIAL PREVIO</p><h2>Información para estudiar</h2></div></div><div class="card-grid">
+<section class="section-block"><div class="section-title" data-tour-target="materials"><div><p class="eyebrow">MATERIAL PREVIO</p><h2>Información para estudiar</h2></div></div><div class="card-grid">
 @foreach (var material in materials)
 {
     var materialDone = completedMaterials.Contains(material.Id);
     <article class="card material-card"><div class="material-icon">@(materialDone ? "✓" : material.SortOrder)</div><div class="grow"><div class="material-meta"><span>Módulo @material.SortOrder</span><span>@material.EstimatedMinutes min</span></div><h3>@material.Title</h3><p>@material.Summary</p><div class="material-actions">@if(materialDone){<span class="status completed">Estudiado</span>}<a class="button secondary" asp-action="Material" asp-route-id="@material.Id">@(materialDone ? "Repasar módulo" : "Comenzar módulo")</a></div></div></article>
 }
 </div></section>
-<section class="card final-card">
+<section class="card final-card" data-tour-target="exam">
     <div><p class="eyebrow">EVALUACIÓN FINAL</p><h2>Examen de aptitud</h2><p>Se habilita al completar las seis evidencias. Puntaje mínimo: 80%. Máximo: tres intentos.</p><div class="attempt-dots">@for(var i=1;i<=3;i++){<span class="@(Model.FinalExamAttempts.Count>=i ? "used" : "")">@i</span>}</div></div>
     <div class="final-actions">
     @if (Model.FinalExamAttempts.Any(x => x.CompletedAt != null))
@@ -63,3 +66,12 @@
     else { <span class="status scheduled">Bloqueado</span> }
     </div>
 </section>
+<div class="collaborator-tour" data-collaborator-tour data-tour-user="@Model.Collaborator.Id" hidden role="dialog" aria-modal="true" aria-labelledby="tourTitle">
+    <button class="tour-scrim" type="button" data-tour-close aria-label="Cerrar guía"></button>
+    <section class="tour-dialog">
+        <span class="tour-counter" data-tour-counter></span>
+        <h2 id="tourTitle" data-tour-title></h2>
+        <p data-tour-text></p>
+        <div class="tour-actions"><button class="button ghost" type="button" data-tour-close>Omitir</button><button class="button secondary" type="button" data-tour-previous>Anterior</button><button class="button primary" type="button" data-tour-next>Siguiente</button></div>
+    </section>
+</div>
