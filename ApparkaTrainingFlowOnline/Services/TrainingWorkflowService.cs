@@ -45,40 +45,44 @@ public class TrainingWorkflowService(
             return new(new(false, "La actividad está fuera de su plazo programado."));
 
         var validityMinutes = Math.Max(1, _options.ValidationCodeMinutes);
-        var code = validationCodes.Generate();
-        var expiresAt = nowUtc.AddMinutes(validityMinutes);
-
-        await using var transaction = await db.Database.BeginTransactionAsync();
-
-        // Un código nuevo reemplaza a cualquier código activo anterior de la misma evidencia.
-        var previousCodes = await db.ValidationSessions
-            .Where(x => x.EvidenceId == evidenceId && x.UsedAt == null && x.ExpiresAt > nowUtc)
-            .ToListAsync();
-
-        foreach (var previous in previousCodes)
-            previous.ExpiresAt = nowUtc;
-
-        db.ValidationSessions.Add(new ValidationSession
+        var executionStrategy = db.Database.CreateExecutionStrategy();
+        var generation = await executionStrategy.ExecuteAsync(async () =>
         {
-            EvidenceId = evidenceId,
-            GeneratedById = supervisorId,
-            CodeHash = validationCodes.Hash(code),
-            ExpiresAt = expiresAt
-        });
+            await using var transaction = await db.Database.BeginTransactionAsync();
+            var code = validationCodes.Generate();
+            var expiresAt = nowUtc.AddMinutes(validityMinutes);
 
-        await db.SaveChangesAsync();
-        await transaction.CommitAsync();
+            // Un código nuevo reemplaza a cualquier código activo anterior de la misma evidencia.
+            var previousCodes = await db.ValidationSessions
+                .Where(x => x.EvidenceId == evidenceId && x.UsedAt == null && x.ExpiresAt > nowUtc)
+                .ToListAsync();
+
+            foreach (var previous in previousCodes)
+                previous.ExpiresAt = nowUtc;
+
+            db.ValidationSessions.Add(new ValidationSession
+            {
+                EvidenceId = evidenceId,
+                GeneratedById = supervisorId,
+                CodeHash = validationCodes.Hash(code),
+                ExpiresAt = expiresAt
+            });
+
+            await db.SaveChangesAsync();
+            await transaction.CommitAsync();
+            return (Code: code, ExpiresAt: expiresAt, ReplacedCount: previousCodes.Count);
+        });
 
         await audit.WriteAsync(
             "VALIDATION_CODE_CREATED",
             nameof(ActivityEvidence),
             evidenceId,
-            $"Código temporal creado para la evidencia {evidence.Sequence}; vence en {validityMinutes} minutos. Se invalidaron {previousCodes.Count} código(s) anterior(es)." );
+            $"Código temporal creado para la evidencia {evidence.Sequence}; vence en {validityMinutes} minutos. Se invalidaron {generation.ReplacedCount} código(s) anterior(es)." );
 
         return new(
             new(true, "Código generado correctamente."),
-            code,
-            expiresAt);
+            generation.Code,
+            generation.ExpiresAt);
     }
 
     public async Task<WorkflowResult> StartActivityAsync(int evidenceId, int collaboratorId, string? code)
@@ -154,57 +158,67 @@ public class TrainingWorkflowService(
             return new(false, "El código venció o fue reemplazado. Solicita al supervisor un código nuevo.");
         }
 
-        await using var transaction = await db.Database.BeginTransactionAsync();
-
-        // Consumo atómico: evita que dos solicitudes utilicen el mismo código al mismo tiempo.
-        var consumedRows = await db.ValidationSessions
-            .Where(x => x.Id == session.Id && x.UsedAt == null && x.ExpiresAt > nowUtc)
-            .ExecuteUpdateAsync(setters => setters
-                .SetProperty(x => x.UsedAt, nowUtc)
-                .SetProperty(x => x.UsedById, collaboratorId)
-                .SetProperty(x => x.UsedIp, current.Ip));
-
-        if (consumedRows != 1)
+        var executionStrategy = db.Database.CreateExecutionStrategy();
+        var codeConsumed = await executionStrategy.ExecuteAsync(async () =>
         {
-            await transaction.RollbackAsync();
+            await using var transaction = await db.Database.BeginTransactionAsync();
+
+            // Consumo atómico: evita que dos solicitudes utilicen el mismo código al mismo tiempo.
+            var consumedRows = await db.ValidationSessions
+                .Where(x => x.Id == session.Id && x.UsedAt == null && x.ExpiresAt > nowUtc)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(x => x.UsedAt, nowUtc)
+                    .SetProperty(x => x.UsedById, collaboratorId)
+                    .SetProperty(x => x.UsedIp, current.Ip));
+
+            if (consumedRows != 1)
+            {
+                await transaction.RollbackAsync();
+                return false;
+            }
+
+            var challengeText = await db.ActivityTemplates
+                .Where(x => x.Id == evidence.TemplateId)
+                .Select(x => x.PracticalChallenge)
+                .FirstAsync();
+
+            var challenges = challengeText.Split(
+                "||",
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            evidence.StartedAt = nowUtc;
+            evidence.Status = EvidenceStatus.InProgress;
+            evidence.StartIp = current.Ip;
+            evidence.StartUserAgent = current.UserAgent;
+            evidence.StartDeviceId = current.DeviceId;
+            evidence.AssignedChallenge = challenges.Length == 0
+                ? challengeText
+                : challenges[RandomNumberGenerator.GetInt32(challenges.Length)];
+
+            if (evidence.QuestionSelections.Count == 0)
+            {
+                var selectedQuestions = Shuffle(questionBank).Take(3).ToList();
+                for (var index = 0; index < selectedQuestions.Count; index++)
+                {
+                    evidence.QuestionSelections.Add(new ActivityQuestionSelection
+                    {
+                        QuestionId = selectedQuestions[index].Id,
+                        DisplayOrder = index + 1,
+                        OptionOrder = RandomOptionOrder()
+                    });
+                }
+            }
+
+            await db.SaveChangesAsync();
+            await transaction.CommitAsync();
+            return true;
+        });
+
+        if (!codeConsumed)
+        {
             await RegisterInvalidCodeAsync(evidenceId, "El código fue consumido por otra solicitud o venció durante la validación.");
             return new(false, "El código ya no está disponible. Solicita uno nuevo al supervisor.");
         }
-
-        var challengeText = await db.ActivityTemplates
-            .Where(x => x.Id == evidence.TemplateId)
-            .Select(x => x.PracticalChallenge)
-            .FirstAsync();
-
-        var challenges = challengeText.Split(
-            "||",
-            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-        evidence.StartedAt = nowUtc;
-        evidence.Status = EvidenceStatus.InProgress;
-        evidence.StartIp = current.Ip;
-        evidence.StartUserAgent = current.UserAgent;
-        evidence.StartDeviceId = current.DeviceId;
-        evidence.AssignedChallenge = challenges.Length == 0
-            ? challengeText
-            : challenges[RandomNumberGenerator.GetInt32(challenges.Length)];
-
-        if (evidence.QuestionSelections.Count == 0)
-        {
-            var selectedQuestions = Shuffle(questionBank).Take(3).ToList();
-            for (var index = 0; index < selectedQuestions.Count; index++)
-            {
-                evidence.QuestionSelections.Add(new ActivityQuestionSelection
-                {
-                    QuestionId = selectedQuestions[index].Id,
-                    DisplayOrder = index + 1,
-                    OptionOrder = RandomOptionOrder()
-                });
-            }
-        }
-
-        await db.SaveChangesAsync();
-        await transaction.CommitAsync();
 
         await audit.WriteAsync(
             "ACTIVITY_STARTED",
