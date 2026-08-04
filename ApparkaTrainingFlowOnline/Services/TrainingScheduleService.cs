@@ -37,6 +37,46 @@ public class TrainingScheduleService(AppDbContext db, PeruClock clock)
         }
     }
 
+    public void ReprogramActivities(TrainingAssignment assignment, DateOnly startDate)
+    {
+        assignment.StartDate = startDate;
+        assignment.EndDate = startDate.AddDays(20);
+
+        var now = clock.UtcNow;
+        var activities = assignment.Activities.OrderBy(x => x.Sequence).ToList();
+        foreach (var activity in activities)
+        {
+            if (activity.Sequence < 1 || activity.Sequence > Windows.Length)
+                continue;
+
+            var window = Windows[activity.Sequence - 1];
+            activity.AvailableFrom = clock.At(startDate.AddDays(window.StartDay), TimeOnly.MinValue);
+            activity.DueAt = clock.At(startDate.AddDays(window.EndDay), new TimeOnly(23, 59, 59));
+
+            if (activity.Status is EvidenceStatus.Completed or EvidenceStatus.InProgress or EvidenceStatus.AwaitingSupervisor)
+                continue;
+
+            var previousCompleted = activity.Sequence == 1 || activities
+                .Any(x => x.Sequence == activity.Sequence - 1 && x.Status == EvidenceStatus.Completed);
+            activity.Status = now < activity.AvailableFrom
+                ? EvidenceStatus.Scheduled
+                : now > activity.DueAt
+                    ? EvidenceStatus.Expired
+                    : previousCompleted
+                        ? EvidenceStatus.Available
+                        : EvidenceStatus.Scheduled;
+        }
+
+        if (assignment.Status is not (TrainingStatus.Apt or TrainingStatus.NotApt or TrainingStatus.Cancelled))
+        {
+            assignment.Status = clock.Today < assignment.StartDate
+                ? TrainingStatus.Preboarding
+                : activities.All(x => x.Status == EvidenceStatus.Completed)
+                    ? TrainingStatus.ReadyForFinalExam
+                    : TrainingStatus.InTraining;
+        }
+    }
+
     public async Task RefreshAssignmentStatusAsync(TrainingAssignment assignment)
     {
         var now = clock.UtcNow;

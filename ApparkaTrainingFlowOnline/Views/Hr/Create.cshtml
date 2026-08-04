@@ -7,8 +7,26 @@
         <div><label asp-for="FullName">Nombre completo</label><input asp-for="FullName" /><span asp-validation-for="FullName"></span></div>
         <div><label asp-for="Email">Correo personal o corporativo</label><input asp-for="Email" /><span asp-validation-for="Email"></span></div>
         <div><label asp-for="IdentityDocument">Documento de identidad</label><input asp-for="IdentityDocument" inputmode="text" autocomplete="off" placeholder="DNI o CE" /><span asp-validation-for="IdentityDocument"></span></div>
-        <div><label asp-for="LocationId">Sede</label><select asp-for="LocationId" asp-items="Model.Locations"><option value="">Seleccionar</option></select></div>
-        <div><label asp-for="SupervisorId">Supervisor responsable</label><select asp-for="SupervisorId" asp-items="Model.Supervisors"><option value="">Seleccionar</option></select></div>
+        <div><label asp-for="Phone">Teléfono</label><input asp-for="Phone" inputmode="tel" autocomplete="tel" placeholder="Ej. 987654321" /><span asp-validation-for="Phone"></span></div>
+    </div>
+    <div class="form-grid" data-location-supervisor-link>
+        <div><label asp-for="LocationId">Sede</label><select asp-for="LocationId" asp-items="Model.Locations" data-location-select><option value="">Seleccionar</option></select><span asp-validation-for="LocationId"></span></div>
+        <div>
+            <label asp-for="SupervisorId">Supervisor responsable</label>
+            <select asp-for="SupervisorId" data-supervisor-select>
+                <option value="">Seleccionar</option>
+                @foreach (var supervisor in Model.Supervisors)
+                {
+                    var supervisorId = int.Parse(supervisor.Value);
+                    var locationIds = Model.SupervisorLocationIds.GetValueOrDefault(supervisorId, Array.Empty<int>());
+                    <option value="@supervisor.Value" data-location-ids="@string.Join(',', locationIds)" selected="@(Model.SupervisorId == supervisorId ? "selected" : null)">@supervisor.Text</option>
+                }
+            </select>
+            <span asp-validation-for="SupervisorId"></span>
+        </div>
+        <p class="linked-select-help" data-location-supervisor-help>Elige una sede para ver únicamente sus supervisores, o elige primero un supervisor para limitar las sedes disponibles.</p>
+    </div>
+    <div class="form-grid">
         <div><label asp-for="AccessFrom">Acceso a materiales desde</label><input asp-for="AccessFrom" /><span asp-validation-for="AccessFrom"></span></div>
         <div><label asp-for="StartDate">Primer día de trabajo</label><input asp-for="StartDate" /><span asp-validation-for="StartDate"></span></div>
     </div>

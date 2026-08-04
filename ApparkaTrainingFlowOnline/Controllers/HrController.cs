@@ -72,7 +72,7 @@ public class HrController(
             FullName = model.FullName.Trim(),
             Email = normalizedEmail,
             EmployeeCode = identityDocument,
-            Phone = null,
+            Phone = model.Phone.Trim(),
             Role = AppRoles.Collaborator,
             ActivationToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(24)).ToLowerInvariant(),
             ActivationExpiresAt = DateTimeOffset.UtcNow.AddDays(14),
@@ -134,8 +134,17 @@ public class HrController(
     private async Task FillLists(CreateCollaboratorViewModel model)
     {
         model.Locations = await db.Locations.Where(x => x.IsActive).Select(x => new SelectListItem(x.Name, x.Id.ToString())).ToListAsync();
-        model.Supervisors = await db.Users.Where(x => x.Role == AppRoles.Supervisor && x.IsActive)
+        var supervisors = await db.Users
+            .AsNoTracking()
+            .Include(x => x.SupervisorLocations)
+            .Where(x => x.Role == AppRoles.Supervisor && x.IsActive)
             .OrderBy(x => x.FullName)
-            .Select(x => new SelectListItem(x.FullName, x.Id.ToString())).ToListAsync();
+            .ToListAsync();
+        model.Supervisors = supervisors
+            .Select(x => new SelectListItem(x.FullName, x.Id.ToString(), x.Id == model.SupervisorId))
+            .ToList();
+        model.SupervisorLocationIds = supervisors.ToDictionary(
+            x => x.Id,
+            x => x.SupervisorLocations.Select(y => y.LocationId).OrderBy(y => y).ToArray());
     }
 }

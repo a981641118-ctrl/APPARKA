@@ -26,6 +26,71 @@ document.querySelectorAll('form[data-confirm]').forEach(form => {
     });
 });
 
+document.querySelectorAll('[data-location-supervisor-link]').forEach(group => {
+    const locationSelect = group.querySelector('[data-location-select]');
+    const supervisorSelect = group.querySelector('[data-supervisor-select]');
+    const help = group.querySelector('[data-location-supervisor-help]');
+    if (!locationSelect || !supervisorSelect) return;
+
+    const locationOptions = [...locationSelect.options].map(option => option.cloneNode(true));
+    const supervisorOptions = [...supervisorSelect.options].map(option => option.cloneNode(true));
+
+    const replaceOptions = (select, source, predicate, selectedValue, emptyText) => {
+        const options = source.filter(option => !option.value || predicate(option)).map(option => option.cloneNode(true));
+        const emptyOption = options.find(option => !option.value);
+        if (emptyOption) emptyOption.textContent = emptyText;
+        select.replaceChildren(...options);
+        const canRestore = options.some(option => option.value === selectedValue);
+        select.value = canRestore ? selectedValue : '';
+    };
+
+    const locationsForSupervisor = supervisorId => {
+        const option = supervisorOptions.find(item => item.value === supervisorId);
+        return new Set((option?.dataset.locationIds ?? '').split(',').filter(Boolean));
+    };
+
+    const filterSupervisors = () => {
+        const locationId = locationSelect.value;
+        const selectedSupervisor = supervisorSelect.value;
+        replaceOptions(
+            supervisorSelect,
+            supervisorOptions,
+            option => !locationId || locationsForSupervisor(option.value).has(locationId),
+            selectedSupervisor,
+            locationId ? 'Seleccionar supervisor de esta sede' : 'Seleccionar'
+        );
+        if (help) help.textContent = locationId
+            ? supervisorSelect.options.length > 1
+                ? 'Se muestran únicamente los supervisores asignados a la sede seleccionada.'
+                : 'Esta sede todavía no tiene supervisores activos asignados.'
+            : 'Elige una sede o un supervisor para limitar las opciones disponibles.';
+    };
+
+    const filterLocations = () => {
+        const supervisorId = supervisorSelect.value;
+        const selectedLocation = locationSelect.value;
+        const allowedLocations = locationsForSupervisor(supervisorId);
+        replaceOptions(
+            locationSelect,
+            locationOptions,
+            option => !supervisorId || allowedLocations.has(option.value),
+            selectedLocation,
+            supervisorId ? 'Seleccionar sede asignada' : 'Seleccionar'
+        );
+        if (supervisorId && !locationSelect.value && allowedLocations.size === 1) {
+            locationSelect.value = [...allowedLocations][0];
+        }
+        if (help) help.textContent = supervisorId
+            ? 'Se muestran únicamente las sedes asignadas al supervisor seleccionado.'
+            : 'Elige una sede o un supervisor para limitar las opciones disponibles.';
+    };
+
+    locationSelect.addEventListener('change', filterSupervisors);
+    supervisorSelect.addEventListener('change', filterLocations);
+    if (locationSelect.value) filterSupervisors();
+    else if (supervisorSelect.value) filterLocations();
+});
+
 document.querySelectorAll('[data-learning-module]').forEach(module => {
     const steps = [...module.querySelectorAll('[data-learning-step]')];
     const previous = module.querySelector('[data-learning-previous]');

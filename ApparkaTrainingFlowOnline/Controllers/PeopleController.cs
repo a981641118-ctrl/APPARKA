@@ -16,7 +16,8 @@ public class PeopleController(
     AppDbContext db,
     PasswordService passwords,
     AuditService audit,
-    InvitationEmailService invitationEmail) : Controller
+    InvitationEmailService invitationEmail,
+    TrainingScheduleService schedule) : Controller
 {
     public async Task<IActionResult> Index()
     {
@@ -103,7 +104,7 @@ public class PeopleController(
         if (await db.Users.AnyAsync(x => x.Email == email))
             ModelState.AddModelError(nameof(model.Email), "Ya existe un usuario con este correo.");
         if (employeeCode is not null && await db.Users.AnyAsync(x => x.EmployeeCode == employeeCode))
-            ModelState.AddModelError(nameof(model.EmployeeCode), "El código interno o documento ya está registrado.");
+            ModelState.AddModelError(nameof(model.EmployeeCode), "El documento de identidad ya está registrado.");
         if (locationIds.Count == 0)
             ModelState.AddModelError(nameof(model.LocationIds), "Selecciona al menos una sede.");
         if (await db.Locations.CountAsync(x => locationIds.Contains(x.Id) && x.IsActive) != locationIds.Count)
@@ -119,7 +120,7 @@ public class PeopleController(
             FullName = model.FullName.Trim(),
             Email = email,
             EmployeeCode = employeeCode,
-            Phone = NormalizeOptional(model.Phone),
+            Phone = model.Phone.Trim(),
             Role = AppRoles.Supervisor,
             ActivationToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(24)).ToLowerInvariant(),
             ActivationExpiresAt = DateTimeOffset.UtcNow.AddDays(14),
@@ -153,8 +154,8 @@ public class PeopleController(
             Role = user.Role,
             FullName = user.FullName,
             Email = user.Email,
-            EmployeeCode = user.EmployeeCode,
-            Phone = user.Phone,
+            EmployeeCode = user.EmployeeCode ?? string.Empty,
+            Phone = user.Phone ?? string.Empty,
             IsActive = user.IsActive,
             LocationIds = user.SupervisorLocations.Select(x => x.LocationId).ToList()
         };
@@ -168,6 +169,8 @@ public class PeopleController(
                 model.AssignmentId = assignment.Id;
                 model.LocationId = assignment.LocationId;
                 model.SupervisorId = assignment.SupervisorId;
+                model.AccessFrom = assignment.AccessFrom.ToDateTime(TimeOnly.MinValue);
+                model.StartDate = assignment.StartDate.ToDateTime(TimeOnly.MinValue);
             }
         }
         await FillEditOptions(model);
@@ -186,7 +189,7 @@ public class PeopleController(
         if (await db.Users.AnyAsync(x => x.Id != user.Id && x.Email == email))
             ModelState.AddModelError(nameof(model.Email), "Ya existe un usuario con este correo.");
         if (employeeCode is not null && await db.Users.AnyAsync(x => x.Id != user.Id && x.EmployeeCode == employeeCode))
-            ModelState.AddModelError(nameof(model.EmployeeCode), "El código interno o documento ya está registrado.");
+            ModelState.AddModelError(nameof(model.EmployeeCode), "El documento de identidad ya está registrado.");
 
         TrainingAssignment? assignment = null;
         var selectedLocationIds = model.LocationIds.Distinct().ToList();
@@ -202,6 +205,7 @@ public class PeopleController(
         else
         {
             assignment = await db.TrainingAssignments
+                .Include(x => x.Activities)
                 .OrderByDescending(x => x.CreatedAt)
                 .FirstOrDefaultAsync(x => x.CollaboratorId == user.Id);
             if (assignment is not null)
@@ -213,6 +217,12 @@ public class PeopleController(
                     ModelState.AddModelError(nameof(model.SupervisorId), "Selecciona un supervisor activo.");
                 else if (model.LocationId is not null && !await db.SupervisorLocations.AnyAsync(x => x.SupervisorId == model.SupervisorId && x.LocationId == model.LocationId))
                     ModelState.AddModelError(nameof(model.SupervisorId), "El supervisor no está asignado a la sede seleccionada.");
+                if (model.AccessFrom is null)
+                    ModelState.AddModelError(nameof(model.AccessFrom), "Selecciona la fecha de acceso a los materiales.");
+                if (model.StartDate is null)
+                    ModelState.AddModelError(nameof(model.StartDate), "Selecciona el primer día de trabajo.");
+                if (model.AccessFrom is not null && model.StartDate is not null && model.AccessFrom.Value.Date > model.StartDate.Value.Date)
+                    ModelState.AddModelError(nameof(model.AccessFrom), "El acceso a los materiales no puede ser posterior al primer día de trabajo.");
             }
         }
 
@@ -222,7 +232,10 @@ public class PeopleController(
             return View(model);
         }
 
-        var previous = $"Nombre: {user.FullName}; correo: {user.Email}; código: {user.EmployeeCode ?? "—"}; teléfono: {user.Phone ?? "—"}; estado: {(user.IsActive ? "Activo" : "Inactivo")}";
+        var previous = $"Nombre: {user.FullName}; correo: {user.Email}; DNI: {user.EmployeeCode ?? "—"}; teléfono: {user.Phone ?? "—"}; estado: {(user.IsActive ? "Activo" : "Inactivo")}";
+        var previousAssignment = assignment is null
+            ? null
+            : $"Sede: {assignment.LocationId}; supervisor: {assignment.SupervisorId}; acceso: {assignment.AccessFrom:dd/MM/yyyy}; inicio: {assignment.StartDate:dd/MM/yyyy}; fin: {assignment.EndDate:dd/MM/yyyy}";
         user.FullName = model.FullName.Trim();
         user.Email = email;
         user.EmployeeCode = employeeCode;
@@ -241,12 +254,20 @@ public class PeopleController(
         {
             assignment.LocationId = model.LocationId!.Value;
             assignment.SupervisorId = model.SupervisorId!.Value;
+            assignment.AccessFrom = DateOnly.FromDateTime(model.AccessFrom!.Value);
+            schedule.ReprogramActivities(assignment, DateOnly.FromDateTime(model.StartDate!.Value));
         }
 
         await db.SaveChangesAsync();
-        var currentValues = $"Nombre: {user.FullName}; correo: {user.Email}; código: {user.EmployeeCode ?? "—"}; teléfono: {user.Phone ?? "—"}; estado: {(user.IsActive ? "Activo" : "Inactivo")}";
+        var currentValues = $"Nombre: {user.FullName}; correo: {user.Email}; DNI: {user.EmployeeCode ?? "—"}; teléfono: {user.Phone ?? "—"}; estado: {(user.IsActive ? "Activo" : "Inactivo")}";
         await audit.WriteAsync("PERSON_UPDATED", nameof(AppUser), user.Id,
             $"Información actualizada. Antes: [{previous}]. Después: [{currentValues}].");
+        if (assignment is not null)
+        {
+            var currentAssignment = $"Sede: {assignment.LocationId}; supervisor: {assignment.SupervisorId}; acceso: {assignment.AccessFrom:dd/MM/yyyy}; inicio: {assignment.StartDate:dd/MM/yyyy}; fin: {assignment.EndDate:dd/MM/yyyy}";
+            await audit.WriteAsync("TRAINING_ASSIGNMENT_UPDATED", nameof(TrainingAssignment), assignment.Id,
+                $"Programación actualizada. Antes: [{previousAssignment}]. Después: [{currentAssignment}].");
+        }
         TempData["Success"] = "Información actualizada correctamente.";
         return RedirectToAction(nameof(Index));
     }
@@ -392,11 +413,18 @@ public class PeopleController(
     private async Task FillEditOptions(EditPersonViewModel model)
     {
         model.Locations = await ActiveLocationOptions(model.LocationIds);
-        model.Supervisors = await db.Users
+        var supervisors = await db.Users
+            .AsNoTracking()
+            .Include(x => x.SupervisorLocations)
             .Where(x => x.Role == AppRoles.Supervisor && x.IsActive)
             .OrderBy(x => x.FullName)
-            .Select(x => new SelectListItem(x.FullName, x.Id.ToString(), model.SupervisorId == x.Id))
             .ToListAsync();
+        model.Supervisors = supervisors
+            .Select(x => new SelectListItem(x.FullName, x.Id.ToString(), model.SupervisorId == x.Id))
+            .ToList();
+        model.SupervisorLocationIds = supervisors.ToDictionary(
+            x => x.Id,
+            x => x.SupervisorLocations.Select(y => y.LocationId).OrderBy(y => y).ToArray());
     }
 
     private async Task<List<SelectListItem>> ActiveLocationOptions(IEnumerable<int> selected)

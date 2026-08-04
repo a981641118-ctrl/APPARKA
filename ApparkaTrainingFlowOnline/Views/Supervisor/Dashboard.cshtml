@@ -89,5 +89,5 @@
         <span class="status @assignment.Status.ToString().ToLowerInvariant()">@assignment.Status.Label()</span>
     </div>
 }
-@if (!Model.Assignments.Any()) { <div class="person-row"><p class="muted">Este supervisor todavía no tiene periodos de entrenamiento asignados.</p></div> }
+@if (!Model.Assignments.Any()) { <div class="person-row person-row-empty"><p class="muted">Este supervisor todavía no tiene periodos de entrenamiento asignados.</p></div> }
 </div></section>
