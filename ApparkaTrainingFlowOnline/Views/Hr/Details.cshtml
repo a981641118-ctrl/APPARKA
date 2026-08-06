@@ -1,25 +1,107 @@
 @inject ApparkaTrainingFlowOnline.Services.PeruClock Clock
 @model TrainingAssignment
-@{ ViewData["Title"] = "Expediente"; var logs = ViewBag.AuditLogs as IReadOnlyList<AuditLog> ?? new List<AuditLog>(); }
-<section class="page-header split-header"><div><p class="eyebrow">EXPEDIENTE DIGITAL</p><h1>@Model.Collaborator.FullName</h1><p>@Model.Position.Name · @Model.Location.Name</p></div><a class="button secondary" asp-controller="People" asp-action="Edit" asp-route-id="@Model.CollaboratorId">Editar información</a></section>
+@{
+    ViewData["Title"] = "Expediente";
+    var logs = ViewBag.AuditLogs as IReadOnlyList<AuditLog> ?? new List<AuditLog>();
+    var isAdministrator = User.IsInRole(AppRoles.Administrator);
+    var suggestedDueAt = Clock.Now.AddHours(24).ToString("yyyy-MM-ddTHH:mm");
+    var activeFinalAttempt = Model.FinalExamAttempts.FirstOrDefault(x => x.CompletedAt == null);
+    var finalOverrideActive = Model.FinalExamExceptionalAccess
+        && Model.FinalExamExceptionalAccessExpiresAt is not null
+        && Model.FinalExamExceptionalAccessExpiresAt >= Clock.UtcNow;
+    var finalExamLocked = activeFinalAttempt is null
+        && !finalOverrideActive
+        && Model.Status is not (TrainingStatus.ReadyForFinalExam or TrainingStatus.Apt
+            or TrainingStatus.AptObserved or TrainingStatus.NotApt or TrainingStatus.Cancelled)
+        && Model.FinalExamAttempts.Count < 3;
+}
+
+<section class="page-header split-header">
+    <div><p class="eyebrow">EXPEDIENTE DIGITAL</p><h1>@Model.Collaborator.FullName</h1><p>@Model.Position.Name · @Model.Location.Name</p></div>
+    <a class="button secondary" asp-controller="People" asp-action="Edit" asp-route-id="@Model.CollaboratorId">Editar información</a>
+</section>
+
 @if (TempData["ActivationLink"] is string link)
 {
     <section class="card activation-card"><h2>Enlace para enviar al colaborador</h2><p>Permite revisar materiales antes del primer día y crear su contraseña.</p><div class="copy-row"><input id="activationLink" readonly value="@link" /><button class="button secondary" type="button" onclick="copyField('activationLink')">Copiar</button></div></section>
 }
+
+@if (Model.HasRealExceptionalAccess)
+{
+    <section class="observed-process-banner" role="status">
+        <strong>Proceso observado</strong>
+        <p>Este expediente contiene al menos una activación excepcional real. Si el colaborador aprueba, el resultado será <b>APTO - OBSERVADO</b>.</p>
+    </section>
+}
+
 <section class="stats-grid">
-    <article class="metric"><span>Estado</span><strong>@Model.Status.Label()</strong></article>
+    <article class="metric"><span>Estado</span><strong class="@(Model.Status == TrainingStatus.AptObserved ? "observed-text" : null)">@Model.Status.Label()</strong></article>
     <article class="metric"><span>Promedio actividades</span><strong>@(Model.OverallActivityScore?.ToString() ?? "—")%</strong></article>
     <article class="metric"><span>Intentos finales</span><strong>@Model.FinalExamAttempts.Count / 3</strong></article>
 </section>
-<section class="card"><h2>Cronograma automático</h2><div class="timeline-list">
-@foreach (var item in Model.Activities.OrderBy(x => x.Sequence))
-{
-    <div class="timeline-row"><span class="sequence">@item.Sequence</span><div><strong>@item.Template.Title</strong><p>Semana @item.WeekNumber · @Clock.Format(item.AvailableFrom, "dd/MM") al @Clock.Format(item.DueAt, "dd/MM")</p></div><div class="score-cell"><span class="status @item.Status.ToString().ToLowerInvariant()">@item.Status.Label()</span>@if(item.Status==EvidenceStatus.Completed){<small>@item.FinalScore%</small>}</div></div>
-}
-</div></section>
-<section class="card"><h2>Resultado del examen final</h2>
-@if (!Model.FinalExamAttempts.Any()) { <p class="muted">Todavía no se registran intentos.</p> }
-else { foreach (var attempt in Model.FinalExamAttempts.OrderBy(x=>x.AttemptNumber)) { <div class="result-row"><span>Intento @attempt.AttemptNumber</span><strong>@attempt.Score%</strong><span>@(attempt.Passed ? "Aprobado" : "No aprobado")</span></div> } }
+
+<section class="card" id="cronograma">
+    <div class="section-title"><div><p class="eyebrow">SEGUIMIENTO</p><h2>Cronograma automático</h2></div></div>
+    <div class="timeline-list">
+    @foreach (var item in Model.Activities.OrderBy(x => x.Sequence))
+    {
+        var isLocked = item.Status is EvidenceStatus.Scheduled or EvidenceStatus.Expired;
+        <div class="timeline-row">
+            <span class="sequence">@item.Sequence</span>
+            <div>
+                <strong>@item.Template.Title</strong>
+                <p>Semana @item.WeekNumber · @Clock.Format(item.AvailableFrom, "dd/MM") al @Clock.Format(item.DueAt, "dd/MM")</p>
+                @if (item.WasExceptionallyUnlocked && !item.ExceptionalUnlockIsSimulation)
+                {
+                    <small class="exceptional-access-note">Activación excepcional real registrada</small>
+                }
+            </div>
+            <div class="score-cell">
+                <span class="status @item.Status.ToString().ToLowerInvariant()">@item.Status.Label()</span>
+                @if (item.Status == EvidenceStatus.Completed) { <small>@item.FinalScore%</small> }
+                @if (isAdministrator && isLocked)
+                {
+                    <button class="button danger-outline compact-button" type="button"
+                            data-exception-open
+                            data-exception-kind="activity"
+                            data-exception-id="@item.Id"
+                            data-exception-title="Actividad @item.Sequence: @item.Template.Title"
+                            data-exception-action="@Url.Action("UnlockActivity", "Admin")">
+                        Activar excepcionalmente
+                    </button>
+                }
+            </div>
+        </div>
+    }
+    </div>
+</section>
+
+<section class="card" id="examen-final">
+    <div class="section-title">
+        <div><p class="eyebrow">EVALUACIÓN FINAL</p><h2>Resultado del examen final</h2></div>
+        @if (isAdministrator && finalExamLocked)
+        {
+            <button class="button danger-outline" type="button"
+                    data-exception-open
+                    data-exception-kind="exam"
+                    data-exception-title="Examen final de aptitud"
+                    data-exception-action="@Url.Action("UnlockFinalExam", "Admin")">
+                Activar excepcionalmente
+            </button>
+        }
+    </div>
+    @if (finalOverrideActive)
+    {
+        <div class="exceptional-access-active"><strong>Acceso excepcional activo</strong><span>Disponible hasta el @Clock.Format(Model.FinalExamExceptionalAccessExpiresAt!.Value).</span></div>
+    }
+    @if (!Model.FinalExamAttempts.Any()) { <p class="muted">Todavía no se registran intentos.</p> }
+    else
+    {
+        foreach (var attempt in Model.FinalExamAttempts.OrderBy(x => x.AttemptNumber))
+        {
+            <div class="result-row"><span>Intento @attempt.AttemptNumber</span><strong>@attempt.Score%</strong><span>@(attempt.Passed ? "Aprobado" : "No aprobado")</span></div>
+        }
+    }
 </section>
 
 <section class="card"><div class="section-title"><div><p class="eyebrow">TRAZABILIDAD</p><h2>Historial de acciones</h2></div><span class="count-badge">@logs.Count</span></div>
@@ -34,3 +116,40 @@ else
     </div>
 }
 </section>
+
+@if (isAdministrator)
+{
+    <dialog class="exception-dialog" data-exception-dialog aria-labelledby="exceptionDialogTitle">
+        <form method="post" data-exception-form>
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="AssignmentId" value="@Model.Id" />
+            <input type="hidden" name="EvidenceId" value="" data-exception-evidence-id />
+            <div class="exception-dialog-heading">
+                <div><p class="eyebrow">CONTROL ADMINISTRATIVO</p><h2 id="exceptionDialogTitle" data-exception-title>Activación excepcional</h2></div>
+                <button class="dialog-close" type="button" data-exception-close aria-label="Cerrar">×</button>
+            </div>
+            <p class="muted">Usa esta función únicamente para simulaciones o situaciones extremas justificadas.</p>
+
+            <fieldset class="exception-mode">
+                <legend>¿Es para simular?</legend>
+                <label><input type="radio" name="IsSimulation" value="true" required data-exception-mode /> <span><strong>Sí</strong><small>No marcará el expediente como observado.</small></span></label>
+                <label><input type="radio" name="IsSimulation" value="false" required data-exception-mode /> <span><strong>No</strong><small>Quedará registrado en la trazabilidad.</small></span></label>
+            </fieldset>
+
+            <div class="exception-fields">
+                <label for="exceptionNewDueAt">Nueva fecha límite</label>
+                <input id="exceptionNewDueAt" type="datetime-local" name="NewDueAt" value="@suggestedDueAt" required />
+                <small>Se sugiere un plazo de 24 horas desde este momento.</small>
+            </div>
+
+            <div class="exception-fields" data-exception-reason hidden>
+                <label for="exceptionReason">Motivo del caso real</label>
+                <textarea id="exceptionReason" name="Reason" rows="4" minlength="15" maxlength="500" placeholder="Explica la situación externa que impidió completar el proceso."></textarea>
+                <small>Mínimo 15 caracteres. Este texto aparecerá en la trazabilidad.</small>
+            </div>
+
+            <div class="warning-box"><strong>Importante</strong><p>La activación no elimina registros anteriores ni completa la actividad automáticamente.</p></div>
+            <div class="form-actions"><button class="button ghost" type="button" data-exception-close>Cancelar</button><button class="button primary" type="submit">Confirmar activación</button></div>
+        </form>
+    </dialog>
+}

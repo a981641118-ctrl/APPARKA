@@ -56,7 +56,7 @@ public class TrainingScheduleService(AppDbContext db, PeruClock clock)
             if (activity.Status is EvidenceStatus.Completed or EvidenceStatus.InProgress or EvidenceStatus.AwaitingSupervisor)
                 continue;
 
-            var previousCompleted = activity.Sequence == 1 || activities
+            var previousCompleted = activity.WasExceptionallyUnlocked || activity.Sequence == 1 || activities
                 .Any(x => x.Sequence == activity.Sequence - 1 && x.Status == EvidenceStatus.Completed);
             activity.Status = now < activity.AvailableFrom
                 ? EvidenceStatus.Scheduled
@@ -67,7 +67,7 @@ public class TrainingScheduleService(AppDbContext db, PeruClock clock)
                         : EvidenceStatus.Scheduled;
         }
 
-        if (assignment.Status is not (TrainingStatus.Apt or TrainingStatus.NotApt or TrainingStatus.Cancelled))
+        if (assignment.Status is not (TrainingStatus.Apt or TrainingStatus.AptObserved or TrainingStatus.NotApt or TrainingStatus.Cancelled))
         {
             assignment.Status = clock.Today < assignment.StartDate
                 ? TrainingStatus.Preboarding
@@ -80,7 +80,7 @@ public class TrainingScheduleService(AppDbContext db, PeruClock clock)
     public async Task RefreshAssignmentStatusAsync(TrainingAssignment assignment)
     {
         var now = clock.UtcNow;
-        if (assignment.Status is TrainingStatus.Apt or TrainingStatus.NotApt or TrainingStatus.Cancelled)
+        if (assignment.Status is TrainingStatus.Apt or TrainingStatus.AptObserved or TrainingStatus.NotApt or TrainingStatus.Cancelled)
             return;
 
         if (clock.Today < assignment.StartDate)
@@ -98,12 +98,23 @@ public class TrainingScheduleService(AppDbContext db, PeruClock clock)
 
             if (activity.Status == EvidenceStatus.Scheduled && now >= activity.AvailableFrom)
             {
-                var previousCompleted = activity.Sequence == 1 || assignment.Activities
+                var previousCompleted = activity.WasExceptionallyUnlocked || activity.Sequence == 1 || assignment.Activities
                     .Any(x => x.Sequence == activity.Sequence - 1 && x.Status == EvidenceStatus.Completed);
                 if (previousCompleted) activity.Status = EvidenceStatus.Available;
             }
             if ((activity.Status is EvidenceStatus.Scheduled or EvidenceStatus.Available) && now > activity.DueAt)
+            {
                 activity.Status = EvidenceStatus.Expired;
+                db.AuditLogs.Add(new AuditLog
+                {
+                    Actor = "Sistema",
+                    Action = "ACTIVITY_EXPIRED",
+                    EntityType = nameof(ActivityEvidence),
+                    EntityId = activity.Id.ToString(),
+                    Detail = $"La actividad {activity.Sequence} venció sin completarse; las actividades posteriores permanecen bloqueadas.",
+                    Severity = AuditSeverity.Warning
+                });
+            }
         }
 
         assignment.OverallActivityScore = assignment.Activities.Any(x => x.Status == EvidenceStatus.Completed)
@@ -118,6 +129,7 @@ public class TrainingScheduleService(AppDbContext db, PeruClock clock)
         var today = clock.Today;
         var assignments = db.TrainingAssignments.Where(x =>
             x.Status != TrainingStatus.Apt
+            && x.Status != TrainingStatus.AptObserved
             && x.Status != TrainingStatus.NotApt
             && x.Status != TrainingStatus.Cancelled);
         if (supervisorId is not null)
@@ -125,15 +137,35 @@ public class TrainingScheduleService(AppDbContext db, PeruClock clock)
 
         var evidences = db.ActivityEvidences.Where(x =>
             x.Assignment.Status != TrainingStatus.Apt
+            && x.Assignment.Status != TrainingStatus.AptObserved
             && x.Assignment.Status != TrainingStatus.NotApt
             && x.Assignment.Status != TrainingStatus.Cancelled);
         if (supervisorId is not null)
             evidences = evidences.Where(x => x.Assignment.SupervisorId == supervisorId.Value);
 
-        await evidences
+        var expiringActivities = await evidences
             .Where(x => (x.Status == EvidenceStatus.Scheduled || x.Status == EvidenceStatus.Available)
                 && now > x.DueAt)
-            .ExecuteUpdateAsync(update => update.SetProperty(x => x.Status, EvidenceStatus.Expired));
+            .Select(x => new { x.Id, x.Sequence })
+            .ToListAsync();
+        if (expiringActivities.Count > 0)
+        {
+            db.AuditLogs.AddRange(expiringActivities.Select(activity => new AuditLog
+            {
+                Actor = "Sistema",
+                Action = "ACTIVITY_EXPIRED",
+                EntityType = nameof(ActivityEvidence),
+                EntityId = activity.Id.ToString(),
+                Detail = $"La actividad {activity.Sequence} venció sin completarse; las actividades posteriores permanecen bloqueadas.",
+                Severity = AuditSeverity.Warning
+            }));
+            await db.SaveChangesAsync();
+            var expiringIds = expiringActivities.Select(x => x.Id).ToList();
+            await db.ActivityEvidences
+                .Where(x => expiringIds.Contains(x.Id)
+                    && (x.Status == EvidenceStatus.Scheduled || x.Status == EvidenceStatus.Available))
+                .ExecuteUpdateAsync(update => update.SetProperty(x => x.Status, EvidenceStatus.Expired));
+        }
 
         await evidences
             .Where(x => x.Status == EvidenceStatus.Available && now < x.AvailableFrom)
@@ -143,7 +175,7 @@ public class TrainingScheduleService(AppDbContext db, PeruClock clock)
             .Where(x => x.Status == EvidenceStatus.Scheduled
                 && now >= x.AvailableFrom
                 && now <= x.DueAt
-                && (x.Sequence == 1 || db.ActivityEvidences.Any(previous =>
+                && (x.WasExceptionallyUnlocked || x.Sequence == 1 || db.ActivityEvidences.Any(previous =>
                     previous.AssignmentId == x.AssignmentId
                     && previous.Sequence == x.Sequence - 1
                     && previous.Status == EvidenceStatus.Completed)))

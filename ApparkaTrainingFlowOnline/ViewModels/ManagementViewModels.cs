@@ -43,6 +43,27 @@ public class AdminIndexViewModel
     public bool? IsActive { get; set; }
 }
 
+public class ExceptionalActivityUnlockViewModel
+{
+    [Required] public int AssignmentId { get; set; }
+    [Required] public int EvidenceId { get; set; }
+    [Required(ErrorMessage = "Indica si la activación es para una simulación.")]
+    public bool? IsSimulation { get; set; }
+    [Required(ErrorMessage = "Indica la nueva fecha límite.")]
+    [DataType(DataType.DateTime)] public DateTime NewDueAt { get; set; }
+    [MaxLength(500)] public string? Reason { get; set; }
+}
+
+public class ExceptionalFinalExamUnlockViewModel
+{
+    [Required] public int AssignmentId { get; set; }
+    [Required(ErrorMessage = "Indica si la activación es para una simulación.")]
+    public bool? IsSimulation { get; set; }
+    [Required(ErrorMessage = "Indica la nueva fecha límite.")]
+    [DataType(DataType.DateTime)] public DateTime NewDueAt { get; set; }
+    [MaxLength(500)] public string? Reason { get; set; }
+}
+
 public class HrIndexViewModel
 {
     public PagedResult<TrainingAssignment> Assignments { get; set; } = new();

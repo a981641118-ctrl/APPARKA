@@ -455,6 +455,7 @@ public class PeopleController(
 
     private Task<bool> HasOpenAssignments(int supervisorId) => db.TrainingAssignments.AnyAsync(x =>
         x.SupervisorId == supervisorId && x.Status != TrainingStatus.Apt
+        && x.Status != TrainingStatus.AptObserved
         && x.Status != TrainingStatus.NotApt && x.Status != TrainingStatus.Cancelled);
 
     private async Task FillLocationOptions(CreateSupervisorViewModel model) =>

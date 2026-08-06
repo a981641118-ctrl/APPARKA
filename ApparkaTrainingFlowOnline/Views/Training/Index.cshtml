@@ -1,6 +1,6 @@
 @inject ApparkaTrainingFlowOnline.Services.PeruClock Clock
 @model TrainingAssignment
-@{ ViewData["Title"] = "Mi entrenamiento"; var materials = ViewBag.Materials as IReadOnlyList<LearningMaterial> ?? new List<LearningMaterial>(); var completedMaterials = ViewBag.CompletedMaterials as IReadOnlyList<int> ?? new List<int>(); var today = ViewBag.Today is DateOnly date ? date : DateOnly.FromDateTime(DateTime.UtcNow.AddHours(-5)); var completed = Model.Activities.Count(x => x.Status == EvidenceStatus.Completed); var progress = completed * 100 / 6; }
+@{ ViewData["Title"] = "Mi entrenamiento"; var materials = ViewBag.Materials as IReadOnlyList<LearningMaterial> ?? new List<LearningMaterial>(); var completedMaterials = ViewBag.CompletedMaterials as IReadOnlyList<int> ?? new List<int>(); var today = ViewBag.Today is DateOnly date ? date : DateOnly.FromDateTime(DateTime.UtcNow.AddHours(-5)); var completed = Model.Activities.Count(x => x.Status == EvidenceStatus.Completed); var progress = completed * 100 / 6; var finalExamExceptionActive = Model.FinalExamExceptionalAccess && Model.FinalExamExceptionalAccessExpiresAt is not null && Model.FinalExamExceptionalAccessExpiresAt >= Clock.UtcNow; }
 <section class="hero-card" data-tour-target="overview">
     <div><p class="eyebrow">PERIODO DE PRUEBA</p><h1>Hola, @Model.Collaborator.FullName.Split(' ')[0]</h1><p>@Model.Position.Name · @Model.Location.Name</p><p class="assignment-supervisor">Supervisor responsable: <strong>@Model.Supervisor.FullName</strong></p></div>
     <div class="hero-tools">
@@ -44,7 +44,7 @@
 }
 </div></section>
 <section class="card final-card" data-tour-target="exam">
-    <div><p class="eyebrow">EVALUACIÓN FINAL</p><h2>Examen de aptitud</h2><p>Se habilita al completar las seis evidencias. Puntaje mínimo: 80%. Máximo: tres intentos.</p><div class="attempt-dots">@for(var i=1;i<=3;i++){<span class="@(Model.FinalExamAttempts.Count>=i ? "used" : "")">@i</span>}</div></div>
+    <div><p class="eyebrow">EVALUACIÓN FINAL</p><h2>Examen de aptitud</h2><p>@(finalExamExceptionActive ? $"Acceso excepcional habilitado hasta el {Clock.Format(Model.FinalExamExceptionalAccessExpiresAt!.Value)}." : "Se habilita al completar las seis evidencias. Puntaje mínimo: 80%. Máximo: tres intentos.")</p><div class="attempt-dots">@for(var i=1;i<=3;i++){<span class="@(Model.FinalExamAttempts.Count>=i ? "used" : "")">@i</span>}</div></div>
     <div class="final-actions">
     @if (Model.FinalExamAttempts.Any(x => x.CompletedAt != null))
     {
@@ -55,13 +55,16 @@
         }
         </div>
     }
-    @if (Model.Status == TrainingStatus.ReadyForFinalExam)
-    {
+    @{
         var activeAttempt = Model.FinalExamAttempts.FirstOrDefault(x => x.CompletedAt == null);
-        if (activeAttempt is not null) { <a class="button primary" asp-action="FinalExam" asp-route-attemptId="@activeAttempt.Id">Continuar examen</a> }
-        else if (Model.FinalExamAttempts.Count < 3) { <form asp-action="StartFinalExam" method="post"><input type="hidden" name="assignmentId" value="@Model.Id" /><button class="button primary" type="submit">Iniciar intento @(Model.FinalExamAttempts.Count + 1)</button></form> }
     }
+    @if (activeAttempt is not null)
+    {
+        <a class="button primary" asp-action="FinalExam" asp-route-attemptId="@activeAttempt.Id">Continuar examen</a>
+    }
+    else if ((Model.Status == TrainingStatus.ReadyForFinalExam || finalExamExceptionActive) && Model.FinalExamAttempts.Count < 3) { <form asp-action="StartFinalExam" method="post"><input type="hidden" name="assignmentId" value="@Model.Id" /><button class="button primary" type="submit">Iniciar intento @(Model.FinalExamAttempts.Count + 1)</button></form> }
     else if (Model.Status == TrainingStatus.Apt) { <span class="final-result apt">APTO</span> }
+    else if (Model.Status == TrainingStatus.AptObserved) { <span class="final-result aptobserved">APTO - OBSERVADO</span> }
     else if (Model.Status == TrainingStatus.NotApt) { <span class="final-result notapt">NO APTO</span> }
     else { <span class="status scheduled">Bloqueado</span> }
     </div>

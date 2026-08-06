@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace ApparkaTrainingFlowOnline.Models;
 
-public enum TrainingStatus { Preboarding, InTraining, ReadyForFinalExam, Apt, NotApt, Cancelled }
+public enum TrainingStatus { Preboarding, InTraining, ReadyForFinalExam, Apt, AptObserved, NotApt, Cancelled }
 public enum EvidenceStatus { Scheduled, Available, InProgress, AwaitingSupervisor, Completed, Expired }
 public enum RatingValue
 {

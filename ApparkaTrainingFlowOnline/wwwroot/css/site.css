@@ -120,3 +120,67 @@ body{background:linear-gradient(180deg,#f0eaff 0,#f8f6ff 300px)}
 @media (max-width:640px){
     .topbar{border-top-width:3px}
 }
+
+/* Control administrativo de activaciones excepcionales */
+.status.aptobserved,.final-result.aptobserved{
+    background:#ffe4ef;
+    color:#a4164f;
+    border:1px solid #ef9fbe;
+}
+.observed-text{color:#a4164f}
+.observed-process-banner{
+    margin:0 0 20px;
+    padding:17px 19px;
+    border:1px solid #ef9fbe;
+    border-left:6px solid #c83270;
+    border-radius:16px;
+    background:linear-gradient(135deg,#fff0f6,#fff);
+    color:#74113b;
+    box-shadow:0 10px 28px rgba(200,50,112,.10);
+}
+.observed-process-banner strong{font-size:1.05rem}
+.observed-process-banner p{margin:5px 0 0;line-height:1.5}
+.exceptional-access-note{display:inline-block;margin-top:7px;color:#a4164f;font-weight:800}
+.exceptional-access-active{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;padding:13px 15px;border:1px solid #e4c4f6;border-radius:13px;background:#f8efff;color:var(--primary-dark)}
+.button.danger-outline{border:1px solid #d45a88;background:#fff1f6;color:#9d164a}
+.button.danger-outline:hover{background:#ffdce9;color:#74113b}
+.compact-button{min-height:36px;margin-top:8px;padding:7px 10px;font-size:.72rem}
+.exception-dialog{
+    width:min(660px,calc(100% - 28px));
+    max-height:calc(100vh - 30px);
+    padding:0;
+    overflow:auto;
+    border:1px solid #d9caf7;
+    border-radius:22px;
+    background:#fff;
+    color:var(--ink);
+    box-shadow:0 28px 80px rgba(30,30,46,.34);
+}
+.exception-dialog::backdrop{background:rgba(30,30,46,.70);backdrop-filter:blur(5px)}
+.exception-dialog form{display:grid;gap:17px;padding:clamp(20px,5vw,32px)}
+.exception-dialog-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.exception-dialog-heading h2{margin:5px 0 0}
+.dialog-close{display:grid;place-items:center;flex:0 0 auto;width:38px;height:38px;border:0;border-radius:50%;background:#f1ebfa;color:var(--primary-dark);font-size:1.4rem;cursor:pointer}
+.exception-mode{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0;padding:0;border:0}
+.exception-mode legend{grid-column:1/-1;margin-bottom:2px;font-weight:900}
+.exception-mode label{display:flex;align-items:flex-start;gap:10px;padding:14px;border:1px solid #d9caf7;border-radius:14px;background:#fcfaff;cursor:pointer}
+.exception-mode label:has(input:checked){border-color:var(--primary);background:#f2eaff;box-shadow:0 0 0 3px rgba(91,17,216,.10)}
+.exception-mode input{margin-top:4px}
+.exception-mode strong,.exception-mode small{display:block}
+.exception-mode small{margin-top:3px;color:var(--muted);font-size:.74rem;line-height:1.35}
+.exception-fields{display:grid;gap:7px}
+.exception-fields label{font-size:.82rem;font-weight:900}
+.exception-fields input,.exception-fields textarea{width:100%;border:1px solid #cbbce4;border-radius:12px;padding:12px 13px;background:#fff;color:var(--ink)}
+.exception-fields small{color:var(--muted);font-size:.74rem}
+.exception-fields[hidden]{display:none}
+
+@media (max-width:640px){
+    .exception-dialog{width:calc(100% - 16px);max-height:calc(100vh - 16px);border-radius:18px}
+    .exception-dialog form{padding:20px 16px}
+    .exception-mode{grid-template-columns:1fr}
+    .exception-mode legend{grid-column:auto}
+    .exceptional-access-active{align-items:flex-start;flex-direction:column}
+    .timeline-row .score-cell .compact-button{width:100%;white-space:normal}
+    #examen-final .section-title{gap:12px;flex-direction:column}
+    #examen-final .section-title .button{width:100%}
+}

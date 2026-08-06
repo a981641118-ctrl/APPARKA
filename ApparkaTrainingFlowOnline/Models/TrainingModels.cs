@@ -20,6 +20,13 @@ public class TrainingAssignment
     public DateOnly EndDate { get; set; }
     public TrainingStatus Status { get; set; } = TrainingStatus.Preboarding;
     public int? OverallActivityScore { get; set; }
+    public bool HasRealExceptionalAccess { get; set; }
+    public bool FinalExamExceptionalAccess { get; set; }
+    public bool FinalExamExceptionalAccessIsSimulation { get; set; }
+    public DateTimeOffset? FinalExamExceptionalAccessGrantedAt { get; set; }
+    public DateTimeOffset? FinalExamExceptionalAccessExpiresAt { get; set; }
+    public int? FinalExamExceptionalAccessGrantedById { get; set; }
+    [MaxLength(500)] public string? FinalExamExceptionalAccessReason { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public ICollection<ActivityEvidence> Activities { get; set; } = [];
     public ICollection<FinalExamAttempt> FinalExamAttempts { get; set; } = [];
@@ -49,6 +56,12 @@ public class ActivityEvidence
     public DateTimeOffset AvailableFrom { get; set; }
     public DateTimeOffset DueAt { get; set; }
     public EvidenceStatus Status { get; set; } = EvidenceStatus.Scheduled;
+    public bool WasExceptionallyUnlocked { get; set; }
+    public bool ExceptionalUnlockIsSimulation { get; set; }
+    public DateTimeOffset? ExceptionallyUnlockedAt { get; set; }
+    public int? ExceptionallyUnlockedById { get; set; }
+    public DateTimeOffset? OriginalDueAt { get; set; }
+    [MaxLength(500)] public string? ExceptionalUnlockReason { get; set; }
     public DateTimeOffset? StartedAt { get; set; }
     public DateTimeOffset? CollaboratorSubmittedAt { get; set; }
     public DateTimeOffset? SupervisorSubmittedAt { get; set; }
