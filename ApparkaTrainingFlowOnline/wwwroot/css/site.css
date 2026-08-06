@@ -91,3 +91,32 @@ body{background:linear-gradient(180deg,#f0eaff 0,#f8f6ff 300px)}
     .responsive-table table{min-width:650px}
     .section-title{align-items:flex-start}
 }
+
+/* Encabezado de alto contraste para la identidad Apparka */
+.topbar{
+    background:rgba(253,252,255,.97);
+    border-top:4px solid var(--primary-dark);
+    border-bottom:1px solid #d9caf7;
+    box-shadow:0 8px 26px rgba(45,4,132,.12);
+}
+.topbar .brand-logo{
+    filter:drop-shadow(0 2px 5px rgba(45,4,132,.10));
+}
+.topbar .user-name{
+    color:#25133f;
+}
+.topbar .icon-button{
+    background:#eee7ff;
+    color:var(--primary-dark);
+    border:1px solid #d6c5f3;
+}
+.topbar .icon-button:hover,
+.topbar .icon-button:focus-visible{
+    background:#dfd0fa;
+    color:#210064;
+    outline:none;
+    box-shadow:0 0 0 3px rgba(91,17,216,.14);
+}
+@media (max-width:640px){
+    .topbar{border-top-width:3px}
+}
