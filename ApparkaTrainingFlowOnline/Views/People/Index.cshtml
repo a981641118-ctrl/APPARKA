@@ -13,25 +13,44 @@
     <section class="card repeated-alerts">
         <div class="section-title"><div><p class="eyebrow">CONTROL DE CALIDAD</p><h2>Observaciones repetidas</h2></div><span class="count-badge">@Model.RepeatedObservationAlerts.Count</span></div>
         <p class="muted">Estas alertas no bloquean evaluaciones. Permiten revisar si un supervisor reutilizó el mismo texto en tres o más colaboradores durante 30 días.</p>
-        <div class="audit-timeline">
-        @foreach (var alert in Model.RepeatedObservationAlerts)
-        {
-            <article class="audit-entry warning"><span class="audit-dot"></span><div><strong>@alert.SupervisorName</strong><p>@alert.Observation</p><small>@alert.CreatedAt.ToString("dd/MM/yyyy HH:mm")</small></div></article>
-        }
-        </div>
+        <div class="audit-timeline">@foreach (var alert in Model.RepeatedObservationAlerts){<article class="audit-entry warning"><span class="audit-dot"></span><div><strong>@alert.SupervisorName</strong><p>@alert.Observation</p><small>@alert.CreatedAt.ToString("dd/MM/yyyy HH:mm")</small></div></article>}</div>
     </section>
 }
-<section class="card"><div class="section-title"><div><p class="eyebrow">RESPONSABLES</p><h2>Supervisores</h2></div><span class="count-badge">@Model.Supervisors.Count</span></div>
-<div class="management-list">
-@foreach (var row in Model.Supervisors)
-{
-    <article class="management-row"><div class="avatar">@row.User.FullName[0]</div><div class="grow"><strong>@row.User.FullName</strong><p>@row.User.Email</p><small>@row.Detail</small></div><span class="status @(row.User.IsActive ? "completed" : "cancelled")">@(row.User.IsActive ? "Activo" : "Inactivo")</span><div class="row-actions"><a class="button secondary" asp-action="Edit" asp-route-id="@row.User.Id">Editar</a><form asp-action="ResendAccess" asp-route-id="@row.User.Id" method="post" data-confirm="Se invalidará el enlace anterior y se generará uno nuevo. ¿Deseas continuar?"><button class="button secondary" type="submit">@(row.User.MustChangePassword ? "Reenviar activación" : "Restablecer acceso")</button></form></div></article>
-}
-</div></section>
-<section class="card"><div class="section-title"><div><p class="eyebrow">EN ENTRENAMIENTO</p><h2>Colaboradores</h2></div><span class="count-badge">@Model.Collaborators.Count</span></div>
-<div class="management-list">
-@foreach (var row in Model.Collaborators)
-{
-    <article class="management-row"><div class="avatar">@row.User.FullName[0]</div><div class="grow"><strong>@row.User.FullName</strong><p>@row.User.Email</p><small>@row.Detail</small></div><span class="status @(row.User.IsActive ? "completed" : "cancelled")">@(row.User.IsActive ? "Activo" : "Inactivo")</span><div class="row-actions"><a class="button secondary" asp-action="Edit" asp-route-id="@row.User.Id">Editar</a><form asp-action="ResendAccess" asp-route-id="@row.User.Id" method="post" data-confirm="Se invalidará el enlace anterior y se generará uno nuevo. ¿Deseas continuar?"><button class="button secondary" type="submit">@(row.User.MustChangePassword ? "Reenviar activación" : "Restablecer acceso")</button></form></div></article>
-}
-</div></section>
+<section class="card" id="supervisores">
+    <div class="section-title"><div><p class="eyebrow">RESPONSABLES</p><h2>Supervisores</h2></div><span class="count-badge">@Model.Supervisors.TotalItems</span></div>
+    <form asp-action="Index" method="get" class="list-filter compact" aria-label="Filtrar supervisores">
+        <input type="hidden" name="collaboratorSearch" value="@Model.CollaboratorSearch" />
+        <input type="hidden" name="collaboratorIsActive" value="@Model.CollaboratorIsActive?.ToString().ToLowerInvariant()" />
+        <input type="hidden" name="collaboratorPage" value="@Model.Collaborators.Page" />
+        <div class="filter-search"><label for="supervisorSearch">Buscar supervisor</label><input id="supervisorSearch" name="supervisorSearch" value="@Model.SupervisorSearch" placeholder="Nombre, correo o DNI" /></div>
+        <div><label for="supervisorIsActive">Estado</label><select id="supervisorIsActive" name="supervisorIsActive"><option value="">Todos</option><option value="true" selected="@(Model.SupervisorIsActive == true ? "selected" : null)">Activos</option><option value="false" selected="@(Model.SupervisorIsActive == false ? "selected" : null)">Inactivos</option></select></div>
+        <div class="filter-actions"><button class="button primary" type="submit">Filtrar</button><a class="button ghost" asp-action="Index" asp-route-collaboratorSearch="@Model.CollaboratorSearch" asp-route-collaboratorIsActive="@Model.CollaboratorIsActive" asp-route-collaboratorPage="@Model.Collaborators.Page" asp-fragment="supervisores">Limpiar</a></div>
+    </form>
+    <div class="management-list">
+    @foreach (var row in Model.Supervisors.Items)
+    {
+        <article class="management-row"><div class="avatar">@row.User.FullName[0]</div><div class="grow"><strong>@row.User.FullName</strong><p>@row.User.Email</p><small>@row.Detail</small></div><span class="status @(row.User.IsActive ? "completed" : "cancelled")">@(row.User.IsActive ? "Activo" : "Inactivo")</span><div class="row-actions"><a class="button secondary" asp-action="Edit" asp-route-id="@row.User.Id">Editar</a><form asp-action="ResendAccess" asp-route-id="@row.User.Id" method="post" data-confirm="Se invalidará el enlace anterior y se generará uno nuevo. ¿Deseas continuar?"><button class="button secondary" type="submit">@(row.User.MustChangePassword ? "Reenviar activación" : "Restablecer acceso")</button></form></div></article>
+    }
+    @if (Model.Supervisors.TotalItems == 0) { <div class="empty-list">No se encontraron supervisores con esos filtros.</div> }
+    </div>
+    <partial name="_Pagination" model="@(new PaginationViewModel { Page = Model.Supervisors.Page, PageSize = Model.Supervisors.PageSize, TotalItems = Model.Supervisors.TotalItems, TotalPages = Model.Supervisors.TotalPages, Action = "Index", PageParameter = "supervisorPage", Anchor = "supervisores", ItemLabel = "supervisores", RouteValues = new() { ["supervisorSearch"] = Model.SupervisorSearch, ["supervisorIsActive"] = Model.SupervisorIsActive?.ToString().ToLowerInvariant(), ["collaboratorSearch"] = Model.CollaboratorSearch, ["collaboratorIsActive"] = Model.CollaboratorIsActive?.ToString().ToLowerInvariant(), ["collaboratorPage"] = Model.Collaborators.Page.ToString() } })" />
+</section>
+<section class="card" id="colaboradores">
+    <div class="section-title"><div><p class="eyebrow">EN ENTRENAMIENTO</p><h2>Colaboradores</h2></div><span class="count-badge">@Model.Collaborators.TotalItems</span></div>
+    <form asp-action="Index" method="get" class="list-filter compact" aria-label="Filtrar colaboradores">
+        <input type="hidden" name="supervisorSearch" value="@Model.SupervisorSearch" />
+        <input type="hidden" name="supervisorIsActive" value="@Model.SupervisorIsActive?.ToString().ToLowerInvariant()" />
+        <input type="hidden" name="supervisorPage" value="@Model.Supervisors.Page" />
+        <div class="filter-search"><label for="collaboratorSearch">Buscar colaborador</label><input id="collaboratorSearch" name="collaboratorSearch" value="@Model.CollaboratorSearch" placeholder="Nombre, correo o DNI" /></div>
+        <div><label for="collaboratorIsActive">Estado</label><select id="collaboratorIsActive" name="collaboratorIsActive"><option value="">Todos</option><option value="true" selected="@(Model.CollaboratorIsActive == true ? "selected" : null)">Activos</option><option value="false" selected="@(Model.CollaboratorIsActive == false ? "selected" : null)">Inactivos</option></select></div>
+        <div class="filter-actions"><button class="button primary" type="submit">Filtrar</button><a class="button ghost" asp-action="Index" asp-route-supervisorSearch="@Model.SupervisorSearch" asp-route-supervisorIsActive="@Model.SupervisorIsActive" asp-route-supervisorPage="@Model.Supervisors.Page" asp-fragment="colaboradores">Limpiar</a></div>
+    </form>
+    <div class="management-list">
+    @foreach (var row in Model.Collaborators.Items)
+    {
+        <article class="management-row"><div class="avatar">@row.User.FullName[0]</div><div class="grow"><strong>@row.User.FullName</strong><p>@row.User.Email</p><small>@row.Detail</small></div><span class="status @(row.User.IsActive ? "completed" : "cancelled")">@(row.User.IsActive ? "Activo" : "Inactivo")</span><div class="row-actions"><a class="button secondary" asp-action="Edit" asp-route-id="@row.User.Id">Editar</a><form asp-action="ResendAccess" asp-route-id="@row.User.Id" method="post" data-confirm="Se invalidará el enlace anterior y se generará uno nuevo. ¿Deseas continuar?"><button class="button secondary" type="submit">@(row.User.MustChangePassword ? "Reenviar activación" : "Restablecer acceso")</button></form></div></article>
+    }
+    @if (Model.Collaborators.TotalItems == 0) { <div class="empty-list">No se encontraron colaboradores con esos filtros.</div> }
+    </div>
+    <partial name="_Pagination" model="@(new PaginationViewModel { Page = Model.Collaborators.Page, PageSize = Model.Collaborators.PageSize, TotalItems = Model.Collaborators.TotalItems, TotalPages = Model.Collaborators.TotalPages, Action = "Index", PageParameter = "collaboratorPage", Anchor = "colaboradores", ItemLabel = "colaboradores", RouteValues = new() { ["supervisorSearch"] = Model.SupervisorSearch, ["supervisorIsActive"] = Model.SupervisorIsActive?.ToString().ToLowerInvariant(), ["supervisorPage"] = Model.Supervisors.Page.ToString(), ["collaboratorSearch"] = Model.CollaboratorSearch, ["collaboratorIsActive"] = Model.CollaboratorIsActive?.ToString().ToLowerInvariant() } })" />
+</section>

@@ -1,20 +1,32 @@
-@model IReadOnlyList<TrainingAssignment>
+@model HrIndexViewModel
 @{ ViewData["Title"] = "Periodos de prueba"; }
 <section class="page-header split-header">
     <div><p class="eyebrow">RECURSOS HUMANOS</p><h1>Periodos de prueba</h1><p>Registro, fechas automáticas y resultado final por colaborador.</p></div>
     <div class="header-actions"><a class="button ghost" asp-controller="People" asp-action="Locations">Sedes</a><a class="button secondary" asp-controller="People" asp-action="Index">Gestionar personas</a><a class="button primary" asp-action="Create">+ Nuevo colaborador</a></div>
 </section>
+<section class="card list-controls-card" id="periodos">
+    <div class="section-title"><div><p class="eyebrow">SEGUIMIENTO</p><h2>Listado de colaboradores</h2></div><span class="count-badge">@Model.Assignments.TotalItems</span></div>
+    <form asp-action="Index" method="get" class="list-filter" aria-label="Filtrar periodos de prueba">
+        <div class="filter-search"><label for="search">Buscar persona</label><input id="search" name="search" value="@Model.Search" placeholder="Colaborador, supervisor, correo o DNI" /></div>
+        <div><label for="status">Etapa</label><select id="status" name="status"><option value="">Todas</option>@foreach (var status in Enum.GetValues<TrainingStatus>()){<option value="@status" selected="@(Model.Status == status ? "selected" : null)">@status.Label()</option>}</select></div>
+        <div><label for="locationId">Sede</label><select id="locationId" name="locationId"><option value="">Todas</option>@foreach (var location in Model.Locations){<option value="@location.Id" selected="@(Model.LocationId == location.Id ? "selected" : null)">@location.Name</option>}</select></div>
+        <div class="filter-actions"><button class="button primary" type="submit">Aplicar filtros</button><a class="button ghost" asp-action="Index">Limpiar</a></div>
+    </form>
+</section>
 <section class="card-grid">
-@foreach (var item in Model)
+@foreach (var item in Model.Assignments.Items)
 {
     var completed = item.Activities.Count(x => x.Status == EvidenceStatus.Completed);
     <article class="card person-card">
         <div class="card-top"><div class="avatar">@string.Concat(item.Collaborator.FullName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(x => x[0]))</div><span class="status @item.Status.ToString().ToLowerInvariant()">@item.Status.Label()</span></div>
         <h2>@item.Collaborator.FullName</h2>
         <p class="muted">@item.Position.Name · @item.Location.Name</p>
+        <p class="person-supervisor">Supervisor: <strong>@item.Supervisor.FullName</strong></p>
         <div class="progress"><span style="@($"width:{completed * 100 / 6}%")"></span></div>
         <div class="meta-row"><span>@completed/6 evidencias</span><span>@item.StartDate.ToString("dd/MM") – @item.EndDate.ToString("dd/MM")</span></div>
         <a class="button secondary full" asp-action="Details" asp-route-id="@item.Id">Ver expediente</a>
     </article>
 }
+@if (Model.Assignments.TotalItems == 0) { <div class="card empty-inline">No se encontraron periodos con esos filtros.</div> }
 </section>
+<partial name="_Pagination" model="@(new PaginationViewModel { Page = Model.Assignments.Page, PageSize = Model.Assignments.PageSize, TotalItems = Model.Assignments.TotalItems, TotalPages = Model.Assignments.TotalPages, Action = "Index", PageParameter = "page", Anchor = "periodos", ItemLabel = "periodos", RouteValues = new() { ["search"] = Model.Search, ["status"] = Model.Status?.ToString(), ["locationId"] = Model.LocationId?.ToString() } })" />

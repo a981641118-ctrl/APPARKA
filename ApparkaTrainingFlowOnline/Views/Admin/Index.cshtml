@@ -1,12 +1,30 @@
-@model IReadOnlyList<AppUser>
+@model AdminIndexViewModel
 @{ ViewData["Title"] = "Administración"; }
 <section class="page-header"><p class="eyebrow">ADMINISTRACIÓN</p><h1>Control general</h1><p>Usuarios, roles y métricas del sistema.</p></section>
-<section class="stats-grid"><article class="metric"><span>Usuarios</span><strong>@ViewBag.UserCount</strong></article><article class="metric"><span>Periodos</span><strong>@ViewBag.AssignmentCount</strong></article><article class="metric"><span>Evidencias cerradas</span><strong>@ViewBag.CompletedCount</strong></article><article class="metric"><span>Alertas</span><strong>@ViewBag.WarningCount</strong></article></section>
-@{
-    var repeatedAlerts = ViewBag.RepeatedObservationAlerts as IReadOnlyList<AuditLog> ?? [];
-}
-@if (repeatedAlerts.Count > 0)
+<section class="stats-grid">
+    <article class="metric"><span>Usuarios</span><strong>@Model.UserCount</strong></article>
+    <article class="metric"><span>Periodos</span><strong>@Model.AssignmentCount</strong></article>
+    <article class="metric"><span>Evidencias cerradas</span><strong>@Model.CompletedCount</strong></article>
+    <article class="metric"><span>Alertas</span><strong>@Model.WarningCount</strong></article>
+</section>
+@if (Model.RepeatedObservationAlerts.Count > 0)
 {
-    <section class="card repeated-alerts"><div class="section-title"><div><p class="eyebrow">CONTROL DE CALIDAD</p><h2>Observaciones repetidas</h2></div><span class="count-badge">@repeatedAlerts.Count</span></div><p class="muted">Revisa los textos idénticos utilizados por un supervisor en tres o más colaboradores durante 30 días.</p><div class="audit-timeline">@foreach (var alert in repeatedAlerts){<article class="audit-entry warning"><span class="audit-dot"></span><div><p>@alert.Detail</p><small>@alert.CreatedAt.ToString("dd/MM/yyyy HH:mm")</small></div></article>}</div></section>
+    <section class="card repeated-alerts"><div class="section-title"><div><p class="eyebrow">CONTROL DE CALIDAD</p><h2>Observaciones repetidas</h2></div><span class="count-badge">@Model.RepeatedObservationAlerts.Count</span></div><p class="muted">Revisa los textos idénticos utilizados por un supervisor en tres o más colaboradores durante 30 días.</p><div class="audit-timeline">@foreach (var alert in Model.RepeatedObservationAlerts){<article class="audit-entry warning"><span class="audit-dot"></span><div><p>@alert.Detail</p><small>@alert.CreatedAt.ToString("dd/MM/yyyy HH:mm")</small></div></article>}</div></section>
 }
-<section class="card"><h2>Usuarios y roles</h2><div class="responsive-table"><table><thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th></tr></thead><tbody>@foreach(var user in Model){<tr><td>@user.FullName</td><td>@user.Email</td><td><span class="role-pill">@user.Role.RoleLabel()</span></td><td>@(user.IsActive ? "Activo" : "Inactivo")</td></tr>}</tbody></table></div></section>
+<section class="card" id="usuarios">
+    <div class="section-title"><div><p class="eyebrow">DIRECTORIO</p><h2>Usuarios y roles</h2></div><span class="count-badge">@Model.Users.TotalItems</span></div>
+    <form asp-action="Index" method="get" class="list-filter" aria-label="Filtrar usuarios">
+        <div class="filter-search"><label for="search">Buscar persona</label><input id="search" name="search" value="@Model.Search" placeholder="Nombre, correo o DNI" /></div>
+        <div><label for="role">Rol</label><select id="role" name="role"><option value="">Todos</option>@foreach (var role in AppRoles.All){<option value="@role" selected="@(Model.Role == role ? "selected" : null)">@role.RoleLabel()</option>}</select></div>
+        <div><label for="isActive">Estado</label><select id="isActive" name="isActive"><option value="">Todos</option><option value="true" selected="@(Model.IsActive == true ? "selected" : null)">Activos</option><option value="false" selected="@(Model.IsActive == false ? "selected" : null)">Inactivos</option></select></div>
+        <div class="filter-actions"><button class="button primary" type="submit">Aplicar filtros</button><a class="button ghost" asp-action="Index">Limpiar</a></div>
+    </form>
+    <div class="responsive-table"><table><thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th></tr></thead><tbody>
+    @foreach (var user in Model.Users.Items)
+    {
+        <tr><td>@user.FullName</td><td>@user.Email</td><td><span class="role-pill">@user.Role.RoleLabel()</span></td><td><span class="status @(user.IsActive ? "completed" : "cancelled")">@(user.IsActive ? "Activo" : "Inactivo")</span></td></tr>
+    }
+    @if (Model.Users.TotalItems == 0) { <tr><td colspan="4" class="empty-table">No se encontraron usuarios con esos filtros.</td></tr> }
+    </tbody></table></div>
+    <partial name="_Pagination" model="@(new PaginationViewModel { Page = Model.Users.Page, PageSize = Model.Users.PageSize, TotalItems = Model.Users.TotalItems, TotalPages = Model.Users.TotalPages, Action = "Index", PageParameter = "page", Anchor = "usuarios", ItemLabel = "usuarios", RouteValues = new() { ["search"] = Model.Search, ["role"] = Model.Role, ["isActive"] = Model.IsActive?.ToString().ToLowerInvariant() } })" />
+</section>

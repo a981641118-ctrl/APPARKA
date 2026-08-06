@@ -111,4 +111,58 @@ public class TrainingScheduleService(AppDbContext db, PeruClock clock)
             : null;
         await db.SaveChangesAsync();
     }
+
+    public async Task RefreshOperationalStatusesAsync(int? supervisorId = null)
+    {
+        var now = clock.UtcNow;
+        var today = clock.Today;
+        var assignments = db.TrainingAssignments.Where(x =>
+            x.Status != TrainingStatus.Apt
+            && x.Status != TrainingStatus.NotApt
+            && x.Status != TrainingStatus.Cancelled);
+        if (supervisorId is not null)
+            assignments = assignments.Where(x => x.SupervisorId == supervisorId.Value);
+
+        var evidences = db.ActivityEvidences.Where(x =>
+            x.Assignment.Status != TrainingStatus.Apt
+            && x.Assignment.Status != TrainingStatus.NotApt
+            && x.Assignment.Status != TrainingStatus.Cancelled);
+        if (supervisorId is not null)
+            evidences = evidences.Where(x => x.Assignment.SupervisorId == supervisorId.Value);
+
+        await evidences
+            .Where(x => (x.Status == EvidenceStatus.Scheduled || x.Status == EvidenceStatus.Available)
+                && now > x.DueAt)
+            .ExecuteUpdateAsync(update => update.SetProperty(x => x.Status, EvidenceStatus.Expired));
+
+        await evidences
+            .Where(x => x.Status == EvidenceStatus.Available && now < x.AvailableFrom)
+            .ExecuteUpdateAsync(update => update.SetProperty(x => x.Status, EvidenceStatus.Scheduled));
+
+        await evidences
+            .Where(x => x.Status == EvidenceStatus.Scheduled
+                && now >= x.AvailableFrom
+                && now <= x.DueAt
+                && (x.Sequence == 1 || db.ActivityEvidences.Any(previous =>
+                    previous.AssignmentId == x.AssignmentId
+                    && previous.Sequence == x.Sequence - 1
+                    && previous.Status == EvidenceStatus.Completed)))
+            .ExecuteUpdateAsync(update => update.SetProperty(x => x.Status, EvidenceStatus.Available));
+
+        await assignments
+            .Where(x => x.StartDate > today && x.Status != TrainingStatus.Preboarding)
+            .ExecuteUpdateAsync(update => update.SetProperty(x => x.Status, TrainingStatus.Preboarding));
+
+        await assignments
+            .Where(x => x.StartDate <= today
+                && x.Activities.Any(activity => activity.Status != EvidenceStatus.Completed)
+                && x.Status != TrainingStatus.InTraining)
+            .ExecuteUpdateAsync(update => update.SetProperty(x => x.Status, TrainingStatus.InTraining));
+
+        await assignments
+            .Where(x => x.Activities.Any()
+                && x.Activities.All(activity => activity.Status == EvidenceStatus.Completed)
+                && x.Status != TrainingStatus.ReadyForFinalExam)
+            .ExecuteUpdateAsync(update => update.SetProperty(x => x.Status, TrainingStatus.ReadyForFinalExam));
+    }
 }

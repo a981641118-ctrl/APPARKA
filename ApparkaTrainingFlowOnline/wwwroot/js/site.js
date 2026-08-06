@@ -280,6 +280,10 @@ document.querySelectorAll('[data-collaborator-tour]').forEach(tour => {
         document.body.classList.remove('tour-open');
         localStorage.setItem(storageKey, 'completed');
     };
+    const finish = () => {
+        close();
+        requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
+    };
 
     const placeDialog = target => {
         const targetRect = target.getBoundingClientRect();
@@ -333,7 +337,7 @@ document.querySelectorAll('[data-collaborator-tour]').forEach(tour => {
     document.querySelectorAll('[data-tour-start]').forEach(button => button.addEventListener('click', start));
     tour.querySelectorAll('[data-tour-close]').forEach(button => button.addEventListener('click', close));
     previous.addEventListener('click', () => { if (current > 0) { current--; render(); } });
-    next.addEventListener('click', () => { if (current >= steps.length - 1) close(); else { current++; render(); } });
+    next.addEventListener('click', () => { if (current >= steps.length - 1) finish(); else { current++; render(); } });
     document.addEventListener('keydown', event => { if (event.key === 'Escape' && !tour.hidden) close(); });
     window.addEventListener('resize', () => {
         if (!tour.hidden && steps[current]) placeDialog(steps[current].target);

@@ -19,20 +19,52 @@ public class PeopleController(
     InvitationEmailService invitationEmail,
     TrainingScheduleService schedule) : Controller
 {
-    public async Task<IActionResult> Index()
+    public async Task<IActionResult> Index(
+        string? supervisorSearch,
+        bool? supervisorIsActive,
+        int supervisorPage = 1,
+        string? collaboratorSearch = null,
+        bool? collaboratorIsActive = null,
+        int collaboratorPage = 1)
     {
-        var supervisors = await db.Users
+        supervisorSearch = supervisorSearch?.Trim() ?? string.Empty;
+        collaboratorSearch = collaboratorSearch?.Trim() ?? string.Empty;
+
+        var supervisorQuery = db.Users
             .AsNoTracking()
             .Include(x => x.SupervisorLocations).ThenInclude(x => x.Location)
             .Where(x => x.Role == AppRoles.Supervisor)
-            .OrderBy(x => x.FullName)
-            .ToListAsync();
-        var collaborators = await db.Users
+            .AsQueryable();
+        if (!string.IsNullOrWhiteSpace(supervisorSearch))
+        {
+            var pattern = $"%{supervisorSearch}%";
+            supervisorQuery = supervisorQuery.Where(x => EF.Functions.ILike(x.FullName, pattern)
+                || EF.Functions.ILike(x.Email, pattern)
+                || (x.EmployeeCode != null && EF.Functions.ILike(x.EmployeeCode, pattern)));
+        }
+        if (supervisorIsActive is not null)
+            supervisorQuery = supervisorQuery.Where(x => x.IsActive == supervisorIsActive.Value);
+        var supervisors = await supervisorQuery.OrderBy(x => x.FullName)
+            .AsSplitQuery()
+            .ToPagedResultAsync(supervisorPage);
+
+        var collaboratorQuery = db.Users
             .AsNoTracking()
             .Where(x => x.Role == AppRoles.Collaborator)
-            .OrderBy(x => x.FullName)
-            .ToListAsync();
-        var collaboratorIds = collaborators.Select(x => x.Id).ToList();
+            .AsQueryable();
+        if (!string.IsNullOrWhiteSpace(collaboratorSearch))
+        {
+            var pattern = $"%{collaboratorSearch}%";
+            collaboratorQuery = collaboratorQuery.Where(x => EF.Functions.ILike(x.FullName, pattern)
+                || EF.Functions.ILike(x.Email, pattern)
+                || (x.EmployeeCode != null && EF.Functions.ILike(x.EmployeeCode, pattern)));
+        }
+        if (collaboratorIsActive is not null)
+            collaboratorQuery = collaboratorQuery.Where(x => x.IsActive == collaboratorIsActive.Value);
+        var collaborators = await collaboratorQuery.OrderBy(x => x.FullName)
+            .ToPagedResultAsync(collaboratorPage);
+
+        var collaboratorIds = collaborators.Items.Select(x => x.Id).ToList();
         var assignments = await db.TrainingAssignments
             .AsNoTracking()
             .Include(x => x.Location).Include(x => x.Supervisor)
@@ -55,14 +87,14 @@ public class PeopleController(
 
         return View(new PeopleIndexViewModel
         {
-            Supervisors = supervisors.Select(x => new PersonRowViewModel
+            Supervisors = supervisors.Map(x => new PersonRowViewModel
             {
                 User = x,
                 Detail = x.SupervisorLocations.Count == 0
                     ? "Sin sedes asignadas"
                     : string.Join(" · ", x.SupervisorLocations.OrderBy(y => y.Location.Name).Select(y => y.Location.Name))
-            }).ToList(),
-            Collaborators = collaborators.Select(x =>
+            }),
+            Collaborators = collaborators.Map(x =>
             {
                 var assignment = assignments.FirstOrDefault(y => y.CollaboratorId == x.Id);
                 return new PersonRowViewModel
@@ -72,7 +104,7 @@ public class PeopleController(
                         ? "Sin periodo asignado"
                         : $"{assignment.Location.Name} · Supervisor: {assignment.Supervisor.FullName}"
                 };
-            }).ToList(),
+            }),
             RepeatedObservationAlerts = repeatedObservationAlerts.Select(x =>
             {
                 var supervisorId = int.TryParse(x.EntityId, out var id) ? id : 0;
@@ -82,7 +114,11 @@ public class PeopleController(
                     Observation = x.Detail,
                     CreatedAt = x.CreatedAt
                 };
-            }).ToList()
+            }).ToList(),
+            SupervisorSearch = supervisorSearch,
+            SupervisorIsActive = supervisorIsActive,
+            CollaboratorSearch = collaboratorSearch,
+            CollaboratorIsActive = collaboratorIsActive
         });
     }
 
@@ -329,20 +365,34 @@ public class PeopleController(
         return RedirectToAction(nameof(Index));
     }
 
-    public async Task<IActionResult> Locations()
+    public async Task<IActionResult> Locations(string? search, bool? isActive, int page = 1)
     {
-        var locations = await db.Locations.AsNoTracking().OrderBy(x => x.Name).ToListAsync();
-        var rows = new List<LocationRowViewModel>();
-        foreach (var location in locations)
+        search = search?.Trim() ?? string.Empty;
+        var query = db.Locations.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(search))
         {
-            rows.Add(new LocationRowViewModel
+            var pattern = $"%{search}%";
+            query = query.Where(x => EF.Functions.ILike(x.Name, pattern)
+                || (x.Code != null && EF.Functions.ILike(x.Code, pattern))
+                || (x.Address != null && EF.Functions.ILike(x.Address, pattern))
+                || (x.District != null && EF.Functions.ILike(x.District, pattern)));
+        }
+        if (isActive is not null) query = query.Where(x => x.IsActive == isActive.Value);
+
+        var rows = await query.OrderBy(x => x.Name)
+            .Select(location => new LocationRowViewModel
             {
                 Location = location,
-                SupervisorCount = await db.SupervisorLocations.CountAsync(x => x.LocationId == location.Id),
-                AssignmentCount = await db.TrainingAssignments.CountAsync(x => x.LocationId == location.Id)
-            });
-        }
-        return View(rows);
+                SupervisorCount = location.Supervisors.Count,
+                AssignmentCount = db.TrainingAssignments.Count(x => x.LocationId == location.Id)
+            })
+            .ToPagedResultAsync(page);
+        return View(new LocationsIndexViewModel
+        {
+            Locations = rows,
+            Search = search,
+            IsActive = isActive
+        });
     }
 
     [HttpGet]

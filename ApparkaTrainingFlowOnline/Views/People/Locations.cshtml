@@ -1,9 +1,19 @@
-@model IReadOnlyList<LocationRowViewModel>
+@model LocationsIndexViewModel
 @{ ViewData["Title"] = "Sedes"; }
 <section class="page-header split-header"><div><p class="eyebrow">COBERTURA OPERATIVA</p><h1>Gestión de sedes</h1><p>Registra nuevas ubicaciones y corrige sus datos sin perder el historial.</p></div><a class="button primary" asp-action="CreateLocation">+ Nueva sede</a></section>
+<section class="card list-controls-card" id="sedes">
+    <div class="section-title"><div><p class="eyebrow">DIRECTORIO</p><h2>Sedes registradas</h2></div><span class="count-badge">@Model.Locations.TotalItems</span></div>
+    <form asp-action="Locations" method="get" class="list-filter compact" aria-label="Filtrar sedes">
+        <div class="filter-search"><label for="search">Buscar sede</label><input id="search" name="search" value="@Model.Search" placeholder="Nombre, código, dirección o distrito" /></div>
+        <div><label for="isActive">Estado</label><select id="isActive" name="isActive"><option value="">Todas</option><option value="true" selected="@(Model.IsActive == true ? "selected" : null)">Activas</option><option value="false" selected="@(Model.IsActive == false ? "selected" : null)">Inactivas</option></select></div>
+        <div class="filter-actions"><button class="button primary" type="submit">Filtrar</button><a class="button ghost" asp-action="Locations">Limpiar</a></div>
+    </form>
+</section>
 <section class="card-grid">
-@foreach (var row in Model)
+@foreach (var row in Model.Locations.Items)
 {
     <article class="card location-card"><div class="card-top"><span class="code-pill">@(row.Location.Code ?? "SIN CÓDIGO")</span><span class="status @(row.Location.IsActive ? "completed" : "cancelled")">@(row.Location.IsActive ? "Activa" : "Inactiva")</span></div><h2>@row.Location.Name</h2><p>@(row.Location.Address ?? "Dirección pendiente")</p><p class="muted">@string.Join(" · ", new[] { row.Location.District, row.Location.Province, row.Location.Department }.Where(x => !string.IsNullOrWhiteSpace(x)))</p><div class="meta-row"><span>@row.SupervisorCount supervisor(es)</span><span>@row.AssignmentCount periodo(s)</span></div><a class="button secondary full" asp-action="EditLocation" asp-route-id="@row.Location.Id">Editar sede</a></article>
 }
+@if (Model.Locations.TotalItems == 0) { <div class="card empty-inline">No se encontraron sedes con esos filtros.</div> }
 </section>
+<partial name="_Pagination" model="@(new PaginationViewModel { Page = Model.Locations.Page, PageSize = Model.Locations.PageSize, TotalItems = Model.Locations.TotalItems, TotalPages = Model.Locations.TotalPages, Action = "Locations", PageParameter = "page", Anchor = "sedes", ItemLabel = "sedes", RouteValues = new() { ["search"] = Model.Search, ["isActive"] = Model.IsActive?.ToString().ToLowerInvariant() } })" />

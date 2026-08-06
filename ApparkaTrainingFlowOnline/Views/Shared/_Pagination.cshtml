@@ -1,0 +1,25 @@
+@using Microsoft.AspNetCore.Routing
+@model PaginationViewModel
+@if (Model.TotalItems > 0)
+{
+    var previousValues = new RouteValueDictionary(Model.RouteValues) { [Model.PageParameter] = Model.Page - 1 };
+    var nextValues = new RouteValueDictionary(Model.RouteValues) { [Model.PageParameter] = Model.Page + 1 };
+    var anchor = string.IsNullOrWhiteSpace(Model.Anchor) ? string.Empty : $"#{Model.Anchor}";
+    <nav class="pagination-bar" aria-label="Paginación de @Model.ItemLabel">
+        <p>Mostrando <strong>@(((Model.Page - 1) * Model.PageSize) + 1)–@Math.Min(Model.Page * Model.PageSize, Model.TotalItems)</strong> de <strong>@Model.TotalItems</strong> @Model.ItemLabel</p>
+        @if (Model.TotalPages > 1)
+        {
+            <div class="pagination-actions">
+                @if (Model.Page > 1)
+                {
+                    <a class="button ghost" href="@(Url.Action(Model.Action, Model.Controller, previousValues) + anchor)">← Anterior</a>
+                }
+                <span>Página @Model.Page de @Model.TotalPages</span>
+                @if (Model.Page < Model.TotalPages)
+                {
+                    <a class="button secondary" href="@(Url.Action(Model.Action, Model.Controller, nextValues) + anchor)">Ver más →</a>
+                }
+            </div>
+        }
+    </nav>
+}

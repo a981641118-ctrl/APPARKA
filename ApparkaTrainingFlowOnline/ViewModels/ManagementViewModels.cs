@@ -21,9 +21,42 @@ public class CreateSupervisorViewModel
 
 public class PeopleIndexViewModel
 {
-    public IReadOnlyList<PersonRowViewModel> Supervisors { get; set; } = [];
-    public IReadOnlyList<PersonRowViewModel> Collaborators { get; set; } = [];
+    public PagedResult<PersonRowViewModel> Supervisors { get; set; } = new();
+    public PagedResult<PersonRowViewModel> Collaborators { get; set; } = new();
     public IReadOnlyList<RepeatedObservationAlertViewModel> RepeatedObservationAlerts { get; set; } = [];
+    public string SupervisorSearch { get; set; } = string.Empty;
+    public bool? SupervisorIsActive { get; set; }
+    public string CollaboratorSearch { get; set; } = string.Empty;
+    public bool? CollaboratorIsActive { get; set; }
+}
+
+public class AdminIndexViewModel
+{
+    public PagedResult<AppUser> Users { get; set; } = new();
+    public IReadOnlyList<AuditLog> RepeatedObservationAlerts { get; set; } = [];
+    public int UserCount { get; set; }
+    public int AssignmentCount { get; set; }
+    public int CompletedCount { get; set; }
+    public int WarningCount { get; set; }
+    public string Search { get; set; } = string.Empty;
+    public string Role { get; set; } = string.Empty;
+    public bool? IsActive { get; set; }
+}
+
+public class HrIndexViewModel
+{
+    public PagedResult<TrainingAssignment> Assignments { get; set; } = new();
+    public IReadOnlyList<Location> Locations { get; set; } = [];
+    public string Search { get; set; } = string.Empty;
+    public TrainingStatus? Status { get; set; }
+    public int? LocationId { get; set; }
+}
+
+public class LocationsIndexViewModel
+{
+    public PagedResult<LocationRowViewModel> Locations { get; set; } = new();
+    public string Search { get; set; } = string.Empty;
+    public bool? IsActive { get; set; }
 }
 
 public class RepeatedObservationAlertViewModel
