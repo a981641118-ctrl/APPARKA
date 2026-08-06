@@ -11,19 +11,6 @@
     };
 }
 <section class="page-header"><p class="eyebrow">GESTIÓN POR EXCEPCIÓN</p><h1>@(Model.IsAdministrator ? "Panel de supervisión" : "Panel del supervisor")</h1><p>Genera el código de inicio y valida únicamente actividades prácticas pendientes.</p></section>
-<section class="card supervisor-filter-card" id="filtros-supervision">
-    <form asp-action="Dashboard" method="get" class="list-filter supervisor-dashboard-filter" aria-label="Filtrar periodos supervisados">
-        @if (Model.IsAdministrator)
-        {
-            <div><label for="supervisorId">Supervisor</label><select id="supervisorId" name="supervisorId"><option value="">Todos</option>@foreach (var supervisor in Model.Supervisors){<option value="@supervisor.Id" selected="@(Model.SelectedSupervisorId == supervisor.Id ? "selected" : null)">@supervisor.FullName@(!supervisor.IsActive ? " (inactivo)" : string.Empty)</option>}</select></div>
-        }
-        <div class="filter-search"><label for="search">Buscar colaborador</label><input id="search" name="search" value="@Model.Search" placeholder="Nombre, correo o DNI" /></div>
-        <div><label for="status">Etapa</label><select id="status" name="status"><option value="">Todas</option>@foreach (var status in Enum.GetValues<TrainingStatus>()){<option value="@status" selected="@(Model.Status == status ? "selected" : null)">@status.Label()</option>}</select></div>
-        <div><label for="locationId">Sede</label><select id="locationId" name="locationId"><option value="">Todas</option>@foreach (var location in Model.Locations){<option value="@location.Id" selected="@(Model.LocationId == location.Id ? "selected" : null)">@location.Name</option>}</select></div>
-        <div class="filter-actions"><button class="button primary" type="submit">Aplicar filtros</button><a class="button ghost" asp-action="Dashboard" asp-route-supervisorId="@(Model.IsAdministrator ? Model.SelectedSupervisorId : null)">Limpiar</a></div>
-    </form>
-    @if (Model.IsAdministrator) { <p class="muted">@(Model.SelectedSupervisorId is null ? "Viendo los periodos de todos los supervisores." : $"Viendo los periodos asignados a {Model.SelectedSupervisorName}.")</p> }
-</section>
 @if (TempData["ValidationCode"] is string code)
 {
     var expiresAt = TempData["ValidationCodeExpiresAt"] as string;
@@ -52,7 +39,21 @@
     </div>
     <partial name="_Pagination" model="@(new PaginationViewModel { Page = Model.StartableActions.Page, PageSize = Model.StartableActions.PageSize, TotalItems = Model.StartableActions.TotalItems, TotalPages = Model.StartableActions.TotalPages, Action = "Dashboard", PageParameter = "startablePage", Anchor = "codigos-disponibles", ItemLabel = "actividades", RouteValues = new(sharedRoutes) { ["periodPage"] = Model.Assignments.Page.ToString(), ["pendingPage"] = Model.PendingActions.Page.ToString() } })" />
 </section>
-<section class="section-block" id="periodos-supervisados"><div class="section-title"><div><p class="eyebrow">RESUMEN</p><h2>Periodos supervisados</h2></div><span class="count-badge">@Model.Assignments.TotalItems</span></div>
+<section class="section-block" id="periodos-supervisados">
+    <div class="section-title"><div><p class="eyebrow">RESUMEN</p><h2>Periodos supervisados</h2></div><span class="count-badge">@Model.Assignments.TotalItems</span></div>
+    <section class="card supervisor-filter-card" id="filtros-supervision">
+        <form asp-action="Dashboard" method="get" class="list-filter supervisor-dashboard-filter" aria-label="Filtrar periodos supervisados">
+            @if (Model.IsAdministrator)
+            {
+                <div><label for="supervisorId">Supervisor</label><select id="supervisorId" name="supervisorId"><option value="">Todos</option>@foreach (var supervisor in Model.Supervisors){<option value="@supervisor.Id" selected="@(Model.SelectedSupervisorId == supervisor.Id ? "selected" : null)">@supervisor.FullName@(!supervisor.IsActive ? " (inactivo)" : string.Empty)</option>}</select></div>
+            }
+            <div class="filter-search"><label for="search">Buscar colaborador</label><input id="search" name="search" value="@Model.Search" placeholder="Nombre, correo o DNI" /></div>
+            <div><label for="status">Etapa</label><select id="status" name="status"><option value="">Todas</option>@foreach (var status in Enum.GetValues<TrainingStatus>()){<option value="@status" selected="@(Model.Status == status ? "selected" : null)">@status.Label()</option>}</select></div>
+            <div><label for="locationId">Sede</label><select id="locationId" name="locationId"><option value="">Todas</option>@foreach (var location in Model.Locations){<option value="@location.Id" selected="@(Model.LocationId == location.Id ? "selected" : null)">@location.Name</option>}</select></div>
+            <div class="filter-actions"><button class="button primary" type="submit">Aplicar filtros</button><a class="button ghost" asp-action="Dashboard" asp-route-supervisorId="@(Model.IsAdministrator ? Model.SelectedSupervisorId : null)">Limpiar</a></div>
+        </form>
+        @if (Model.IsAdministrator) { <p class="muted">@(Model.SelectedSupervisorId is null ? "Viendo los periodos de todos los supervisores." : $"Viendo los periodos asignados a {Model.SelectedSupervisorName}.")</p> }
+    </section>
     <div class="list-card">
     @foreach (var assignment in Model.Assignments.Items)
     {
