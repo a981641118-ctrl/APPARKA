@@ -8,6 +8,7 @@ public static class UiExtensions
         TrainingStatus.InTraining => "En entrenamiento",
         TrainingStatus.ReadyForFinalExam => "Listo para examen",
         TrainingStatus.Apt => "Apto",
+        TrainingStatus.AptObserved => "Apto - observado",
         TrainingStatus.NotApt => "No apto",
         TrainingStatus.Cancelled => "Cancelado",
         _ => value.ToString()

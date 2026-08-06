@@ -118,7 +118,7 @@ public class TrainingWorkflowService(
         if (nowUtc < evidence.AvailableFrom || nowUtc > evidence.DueAt)
             return new(false, "La actividad está fuera de su plazo programado.");
 
-        if (evidence.Sequence > 1 && !evidence.Assignment.Activities.Any(x =>
+        if (!evidence.WasExceptionallyUnlocked && evidence.Sequence > 1 && !evidence.Assignment.Activities.Any(x =>
                 x.Sequence == evidence.Sequence - 1 && x.Status == EvidenceStatus.Completed))
             return new(false, "Primero debes completar la actividad anterior.");
 
@@ -506,12 +506,15 @@ public class TrainingWorkflowService(
 
         await schedule.RefreshAssignmentStatusAsync(assignment);
 
-        if (assignment.Status != TrainingStatus.ReadyForFinalExam)
-            return (new(false, "Completa las seis evidencias antes del examen final."), null);
-
         var activeAttempt = assignment.FinalExamAttempts.FirstOrDefault(x => x.CompletedAt == null);
         if (activeAttempt is not null)
             return (new(true, "Se retomará el intento en curso."), activeAttempt);
+
+        var exceptionalAccessActive = assignment.FinalExamExceptionalAccess
+            && assignment.FinalExamExceptionalAccessExpiresAt is not null
+            && assignment.FinalExamExceptionalAccessExpiresAt >= DateTimeOffset.UtcNow;
+        if (assignment.Status != TrainingStatus.ReadyForFinalExam && !exceptionalAccessActive)
+            return (new(false, "Completa las seis evidencias antes del examen final."), null);
 
         if (assignment.FinalExamAttempts.Count >= _options.FinalExamMaxAttempts)
             return (new(false, $"Ya utilizaste los {_options.FinalExamMaxAttempts} intentos permitidos."), null);
@@ -582,7 +585,9 @@ public class TrainingWorkflowService(
         attempt.CompletedAt = DateTimeOffset.UtcNow;
 
         if (attempt.Passed)
-            attempt.Assignment.Status = TrainingStatus.Apt;
+            attempt.Assignment.Status = attempt.Assignment.HasRealExceptionalAccess
+                ? TrainingStatus.AptObserved
+                : TrainingStatus.Apt;
         else if (attempt.AttemptNumber >= _options.FinalExamMaxAttempts)
             attempt.Assignment.Status = TrainingStatus.NotApt;
 
@@ -595,7 +600,9 @@ public class TrainingWorkflowService(
             attempt.Passed ? AuditSeverity.Info : AuditSeverity.Warning);
 
         return new(true, attempt.Passed
-            ? "Examen aprobado. El colaborador ha sido calificado como APTO."
+            ? attempt.Assignment.Status == TrainingStatus.AptObserved
+                ? "Examen aprobado. El colaborador ha sido calificado como APTO - OBSERVADO."
+                : "Examen aprobado. El colaborador ha sido calificado como APTO."
             : attempt.AttemptNumber >= _options.FinalExamMaxAttempts
                 ? $"No alcanzó el puntaje mínimo en {_options.FinalExamMaxAttempts} intentos. Resultado: NO APTO."
                 : $"No alcanzaste {_options.FinalExamPassingScore}%. Te quedan {_options.FinalExamMaxAttempts - attempt.AttemptNumber} intento(s).");

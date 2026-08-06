@@ -345,3 +345,46 @@ document.querySelectorAll('[data-collaborator-tour]').forEach(tour => {
 
     if (!localStorage.getItem(storageKey)) setTimeout(start, 700);
 });
+
+document.querySelectorAll('[data-exception-dialog]').forEach(dialog => {
+    const form = dialog.querySelector('[data-exception-form]');
+    const title = dialog.querySelector('[data-exception-title]');
+    const evidenceId = dialog.querySelector('[data-exception-evidence-id]');
+    const dueAt = dialog.querySelector('input[name="NewDueAt"]');
+    const reasonGroup = dialog.querySelector('[data-exception-reason]');
+    const reason = reasonGroup.querySelector('textarea');
+    const modeInputs = dialog.querySelectorAll('[data-exception-mode]');
+
+    const suggestedDueAt = () => {
+        const value = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        value.setMinutes(value.getMinutes() - value.getTimezoneOffset());
+        return value.toISOString().slice(0, 16);
+    };
+    const updateMode = () => {
+        const selected = dialog.querySelector('[data-exception-mode]:checked');
+        const requiresReason = selected?.value === 'false';
+        reasonGroup.hidden = !requiresReason;
+        reason.required = requiresReason;
+        if (!requiresReason) reason.value = '';
+    };
+    const close = () => dialog.close();
+
+    document.querySelectorAll('[data-exception-open]').forEach(button => {
+        button.addEventListener('click', () => {
+            form.reset();
+            form.action = button.dataset.exceptionAction;
+            title.textContent = button.dataset.exceptionTitle || 'Activación excepcional';
+            evidenceId.value = button.dataset.exceptionKind === 'activity'
+                ? button.dataset.exceptionId
+                : '';
+            dueAt.value = suggestedDueAt();
+            updateMode();
+            dialog.showModal();
+        });
+    });
+    modeInputs.forEach(input => input.addEventListener('change', updateMode));
+    dialog.querySelectorAll('[data-exception-close]').forEach(button => button.addEventListener('click', close));
+    dialog.addEventListener('click', event => {
+        if (event.target === dialog) close();
+    });
+});
