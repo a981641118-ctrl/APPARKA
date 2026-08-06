@@ -20,15 +20,34 @@ public class HrController(
     InvitationEmailService invitationEmail,
     PeruClock clock) : Controller
 {
-    public async Task<IActionResult> Index()
+    public async Task<IActionResult> Index(string? search, TrainingStatus? status, int? locationId, int page = 1)
     {
-        var assignments = await db.TrainingAssignments
+        await schedule.RefreshOperationalStatusesAsync();
+        search = search?.Trim() ?? string.Empty;
+        var assignmentsQuery = db.TrainingAssignments.AsNoTracking()
             .Include(x => x.Collaborator).Include(x => x.Supervisor)
             .Include(x => x.Location).Include(x => x.Position)
             .Include(x => x.Activities).Include(x => x.FinalExamAttempts)
-            .OrderByDescending(x => x.CreatedAt).ToListAsync();
-        foreach (var assignment in assignments) await schedule.RefreshAssignmentStatusAsync(assignment);
-        return View(assignments);
+            .AsQueryable();
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var pattern = $"%{search}%";
+            assignmentsQuery = assignmentsQuery.Where(x => EF.Functions.ILike(x.Collaborator.FullName, pattern)
+                || EF.Functions.ILike(x.Collaborator.Email, pattern)
+                || (x.Collaborator.EmployeeCode != null && EF.Functions.ILike(x.Collaborator.EmployeeCode, pattern))
+                || EF.Functions.ILike(x.Supervisor.FullName, pattern));
+        }
+        if (status is not null) assignmentsQuery = assignmentsQuery.Where(x => x.Status == status.Value);
+        if (locationId is not null) assignmentsQuery = assignmentsQuery.Where(x => x.LocationId == locationId.Value);
+
+        return View(new HrIndexViewModel
+        {
+            Assignments = await assignmentsQuery.OrderByDescending(x => x.CreatedAt).ToPagedResultAsync(page),
+            Locations = await db.Locations.AsNoTracking().Where(x => x.IsActive).OrderBy(x => x.Name).ToListAsync(),
+            Search = search,
+            Status = status,
+            LocationId = locationId
+        });
     }
 
     [HttpGet]
@@ -72,7 +91,7 @@ public class HrController(
             FullName = model.FullName.Trim(),
             Email = normalizedEmail,
             EmployeeCode = identityDocument,
-            Phone = null,
+            Phone = model.Phone.Trim(),
             Role = AppRoles.Collaborator,
             ActivationToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(24)).ToLowerInvariant(),
             ActivationExpiresAt = DateTimeOffset.UtcNow.AddDays(14),
@@ -134,8 +153,17 @@ public class HrController(
     private async Task FillLists(CreateCollaboratorViewModel model)
     {
         model.Locations = await db.Locations.Where(x => x.IsActive).Select(x => new SelectListItem(x.Name, x.Id.ToString())).ToListAsync();
-        model.Supervisors = await db.Users.Where(x => x.Role == AppRoles.Supervisor && x.IsActive)
+        var supervisors = await db.Users
+            .AsNoTracking()
+            .Include(x => x.SupervisorLocations)
+            .Where(x => x.Role == AppRoles.Supervisor && x.IsActive)
             .OrderBy(x => x.FullName)
-            .Select(x => new SelectListItem(x.FullName, x.Id.ToString())).ToListAsync();
+            .ToListAsync();
+        model.Supervisors = supervisors
+            .Select(x => new SelectListItem(x.FullName, x.Id.ToString(), x.Id == model.SupervisorId))
+            .ToList();
+        model.SupervisorLocationIds = supervisors.ToDictionary(
+            x => x.Id,
+            x => x.SupervisorLocations.Select(y => y.LocationId).OrderBy(y => y).ToArray());
     }
 }

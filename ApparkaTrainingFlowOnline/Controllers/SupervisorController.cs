@@ -16,7 +16,14 @@ public class SupervisorController(
     TrainingScheduleService schedule,
     PeruClock clock) : Controller
 {
-    public async Task<IActionResult> Dashboard(int? supervisorId = null)
+    public async Task<IActionResult> Dashboard(
+        int? supervisorId = null,
+        string? search = null,
+        TrainingStatus? status = null,
+        int? locationId = null,
+        int periodPage = 1,
+        int pendingPage = 1,
+        int startablePage = 1)
     {
         var isAdministrator = User.IsInRole(AppRoles.Administrator);
         var supervisors = isAdministrator
@@ -30,24 +37,68 @@ public class SupervisorController(
         if (isAdministrator && supervisorId is not null && supervisors.All(x => x.Id != supervisorId))
             return NotFound();
 
-        var query = db.TrainingAssignments
+        var selectedSupervisorId = isAdministrator ? supervisorId : current.UserId;
+        await schedule.RefreshOperationalStatusesAsync(selectedSupervisorId);
+        search = search?.Trim() ?? string.Empty;
+
+        var scopedAssignments = db.TrainingAssignments.AsNoTracking().AsQueryable();
+        if (selectedSupervisorId is not null)
+            scopedAssignments = scopedAssignments.Where(x => x.SupervisorId == selectedSupervisorId.Value);
+
+        var filteredAssignments = scopedAssignments;
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var pattern = $"%{search}%";
+            filteredAssignments = filteredAssignments.Where(x => EF.Functions.ILike(x.Collaborator.FullName, pattern)
+                || EF.Functions.ILike(x.Collaborator.Email, pattern)
+                || (x.Collaborator.EmployeeCode != null && EF.Functions.ILike(x.Collaborator.EmployeeCode, pattern)));
+        }
+        if (status is not null) filteredAssignments = filteredAssignments.Where(x => x.Status == status.Value);
+        if (locationId is not null) filteredAssignments = filteredAssignments.Where(x => x.LocationId == locationId.Value);
+
+        var assignmentPage = await filteredAssignments
             .Include(x => x.Collaborator).Include(x => x.Supervisor)
             .Include(x => x.Location).Include(x => x.Position)
             .Include(x => x.Activities).ThenInclude(x => x.Template)
-            .AsQueryable();
-        if (isAdministrator && supervisorId is not null)
-            query = query.Where(x => x.SupervisorId == supervisorId);
-        else if (!isAdministrator)
-            query = query.Where(x => x.SupervisorId == current.UserId);
+            .OrderByDescending(x => x.CreatedAt)
+            .ToPagedResultAsync(periodPage);
 
-        var assignments = await query.OrderByDescending(x => x.CreatedAt).ToListAsync();
-        foreach (var item in assignments) await schedule.RefreshAssignmentStatusAsync(item);
+        var filteredIds = filteredAssignments.Select(x => x.Id);
+        var actionQuery = db.ActivityEvidences.AsNoTracking()
+            .Include(x => x.Assignment).ThenInclude(x => x.Collaborator)
+            .Include(x => x.Assignment).ThenInclude(x => x.Supervisor)
+            .Include(x => x.Assignment).ThenInclude(x => x.Location)
+            .Include(x => x.Template)
+            .Where(x => filteredIds.Contains(x.AssignmentId));
+
+        var pending = await actionQuery
+            .Where(x => x.Status == EvidenceStatus.AwaitingSupervisor)
+            .OrderBy(x => x.DueAt)
+            .ToPagedResultAsync(pendingPage, ListPageSizes.Actions);
+        var startable = await actionQuery
+            .Where(x => x.Status == EvidenceStatus.Available)
+            .OrderBy(x => x.DueAt)
+            .ToPagedResultAsync(startablePage, ListPageSizes.Actions);
+
+        var locationQuery = db.Locations.AsNoTracking().Where(x => x.IsActive);
+        if (selectedSupervisorId is not null)
+            locationQuery = locationQuery.Where(x => x.Supervisors.Any(y => y.SupervisorId == selectedSupervisorId.Value));
+
         return View(new SupervisorDashboardViewModel
         {
-            Assignments = assignments,
+            Assignments = assignmentPage,
+            PendingActions = pending.Map(x => new SupervisorActionRowViewModel { Assignment = x.Assignment, Evidence = x }),
+            StartableActions = startable.Map(x => new SupervisorActionRowViewModel { Assignment = x.Assignment, Evidence = x }),
             Supervisors = supervisors,
-            SelectedSupervisorId = isAdministrator ? supervisorId : current.UserId,
-            IsAdministrator = isAdministrator
+            Locations = await locationQuery.OrderBy(x => x.Name).ToListAsync(),
+            SelectedSupervisorId = selectedSupervisorId,
+            IsAdministrator = isAdministrator,
+            ActiveAssignmentCount = await scopedAssignments.CountAsync(x => x.Status == TrainingStatus.Preboarding
+                || x.Status == TrainingStatus.InTraining
+                || x.Status == TrainingStatus.ReadyForFinalExam),
+            Search = search,
+            Status = status,
+            LocationId = locationId
         });
     }
 

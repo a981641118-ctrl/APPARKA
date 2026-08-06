@@ -10,6 +10,9 @@ public class CreateCollaboratorViewModel
     [Required(ErrorMessage = "Ingresa el documento de identidad.")]
     [RegularExpression("^[A-Za-z0-9]{8,15}$", ErrorMessage = "Usa entre 8 y 15 letras o números, sin espacios ni guiones.")]
     [MaxLength(15)] public string IdentityDocument { get; set; } = string.Empty;
+    [Required(ErrorMessage = "Ingresa un teléfono de contacto.")]
+    [Phone(ErrorMessage = "Ingresa un número de teléfono válido.")]
+    [MaxLength(30)] public string Phone { get; set; } = string.Empty;
     [Required] public int LocationId { get; set; }
     [Required] public int PositionId { get; set; }
     [Required] public int SupervisorId { get; set; }
@@ -17,4 +20,5 @@ public class CreateCollaboratorViewModel
     [Required, DataType(DataType.Date)] public DateTime AccessFrom { get; set; } = DateTime.Today;
     public List<SelectListItem> Locations { get; set; } = [];
     public List<SelectListItem> Supervisors { get; set; } = [];
+    public Dictionary<int, int[]> SupervisorLocationIds { get; set; } = [];
 }

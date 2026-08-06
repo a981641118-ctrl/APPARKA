@@ -2,7 +2,7 @@
 @model TrainingAssignment
 @{ ViewData["Title"] = "Mi entrenamiento"; var materials = ViewBag.Materials as IReadOnlyList<LearningMaterial> ?? new List<LearningMaterial>(); var completedMaterials = ViewBag.CompletedMaterials as IReadOnlyList<int> ?? new List<int>(); var today = ViewBag.Today is DateOnly date ? date : DateOnly.FromDateTime(DateTime.UtcNow.AddHours(-5)); var completed = Model.Activities.Count(x => x.Status == EvidenceStatus.Completed); var progress = completed * 100 / 6; }
 <section class="hero-card" data-tour-target="overview">
-    <div><p class="eyebrow">PERIODO DE PRUEBA</p><h1>Hola, @Model.Collaborator.FullName.Split(' ')[0]</h1><p>@Model.Position.Name · @Model.Location.Name</p></div>
+    <div><p class="eyebrow">PERIODO DE PRUEBA</p><h1>Hola, @Model.Collaborator.FullName.Split(' ')[0]</h1><p>@Model.Position.Name · @Model.Location.Name</p><p class="assignment-supervisor">Supervisor responsable: <strong>@Model.Supervisor.FullName</strong></p></div>
     <div class="hero-tools">
         <div class="progress-ring" style="--progress:@progress"><div><strong>@progress%</strong><span>avance</span></div></div>
         <button class="tour-launch" type="button" data-tour-start aria-label="Abrir guía interactiva"><span class="tour-launch-icon">?</span><span>Ver guía</span></button>

@@ -1,93 +1,65 @@
 @inject ApparkaTrainingFlowOnline.Services.PeruClock Clock
 @model SupervisorDashboardViewModel
-@{ ViewData["Title"] = "Supervisión"; }
-<section class="page-header"><p class="eyebrow">GESTIÓN POR EXCEPCIÓN</p><h1>@(Model.IsAdministrator ? "Panel de supervisión" : "Panel del supervisor")</h1><p>Genera el código de inicio y valida únicamente actividades prácticas pendientes.</p></section>
-@if (Model.IsAdministrator)
-{
-    <section class="card supervisor-filter-card">
-        <form asp-action="Dashboard" method="get" class="supervisor-filter-form">
-            <div>
-                <label for="supervisorId">Supervisor consultado</label>
-                <select id="supervisorId" name="supervisorId">
-                    <option value="">Todos los supervisores</option>
-                    @foreach (var supervisor in Model.Supervisors)
-                    {
-                        <option value="@supervisor.Id" selected="@(Model.SelectedSupervisorId == supervisor.Id ? "selected" : null)">@supervisor.FullName@(!supervisor.IsActive ? " (inactivo)" : string.Empty)</option>
-                    }
-                </select>
-            </div>
-            <button class="button primary" type="submit">Consultar</button>
-        </form>
-        <p class="muted">@(Model.SelectedSupervisorId is null ? "Viendo los periodos de todos los supervisores." : $"Viendo los periodos asignados a {Model.SelectedSupervisorName}.")</p>
-    </section>
+@{
+    ViewData["Title"] = "Supervisión";
+    var sharedRoutes = new Dictionary<string, string?>
+    {
+        ["supervisorId"] = Model.IsAdministrator ? Model.SelectedSupervisorId?.ToString() : null,
+        ["search"] = Model.Search,
+        ["status"] = Model.Status?.ToString(),
+        ["locationId"] = Model.LocationId?.ToString()
+    };
 }
+<section class="page-header"><p class="eyebrow">GESTIÓN POR EXCEPCIÓN</p><h1>@(Model.IsAdministrator ? "Panel de supervisión" : "Panel del supervisor")</h1><p>Genera el código de inicio y valida únicamente actividades prácticas pendientes.</p></section>
+<section class="card supervisor-filter-card" id="filtros-supervision">
+    <form asp-action="Dashboard" method="get" class="list-filter supervisor-dashboard-filter" aria-label="Filtrar periodos supervisados">
+        @if (Model.IsAdministrator)
+        {
+            <div><label for="supervisorId">Supervisor</label><select id="supervisorId" name="supervisorId"><option value="">Todos</option>@foreach (var supervisor in Model.Supervisors){<option value="@supervisor.Id" selected="@(Model.SelectedSupervisorId == supervisor.Id ? "selected" : null)">@supervisor.FullName@(!supervisor.IsActive ? " (inactivo)" : string.Empty)</option>}</select></div>
+        }
+        <div class="filter-search"><label for="search">Buscar colaborador</label><input id="search" name="search" value="@Model.Search" placeholder="Nombre, correo o DNI" /></div>
+        <div><label for="status">Etapa</label><select id="status" name="status"><option value="">Todas</option>@foreach (var status in Enum.GetValues<TrainingStatus>()){<option value="@status" selected="@(Model.Status == status ? "selected" : null)">@status.Label()</option>}</select></div>
+        <div><label for="locationId">Sede</label><select id="locationId" name="locationId"><option value="">Todas</option>@foreach (var location in Model.Locations){<option value="@location.Id" selected="@(Model.LocationId == location.Id ? "selected" : null)">@location.Name</option>}</select></div>
+        <div class="filter-actions"><button class="button primary" type="submit">Aplicar filtros</button><a class="button ghost" asp-action="Dashboard" asp-route-supervisorId="@(Model.IsAdministrator ? Model.SelectedSupervisorId : null)">Limpiar</a></div>
+    </form>
+    @if (Model.IsAdministrator) { <p class="muted">@(Model.SelectedSupervisorId is null ? "Viendo los periodos de todos los supervisores." : $"Viendo los periodos asignados a {Model.SelectedSupervisorName}.")</p> }
+</section>
 @if (TempData["ValidationCode"] is string code)
 {
     var expiresAt = TempData["ValidationCodeExpiresAt"] as string;
     var codeEvidenceId = TempData["ValidationCodeEvidenceId"];
-    <section class="code-modal-card" aria-live="polite">
-        <p>CÓDIGO TEMPORAL</p>
-        <div class="generated-code-row">
-            <input id="generatedValidationCode" value="@code" readonly aria-label="Código temporal generado" />
-            <button class="button secondary" type="button" onclick="copyField('generatedValidationCode')">Copiar</button>
-        </div>
-        <span>Actividad: @codeEvidenceId · Un solo uso.</span>
-        @if (!string.IsNullOrWhiteSpace(expiresAt))
-        {
-            <span>Vence el @expiresAt (hora de Lima).</span>
-        }
-        <small>Al generar otro código para esta misma actividad, el anterior queda invalidado.</small>
-    </section>
-}
-@{
-    var pending = Model.Assignments.SelectMany(a => a.Activities.Select(e => new { Assignment = a, Evidence = e }))
-        .Where(x => x.Evidence.Status == EvidenceStatus.AwaitingSupervisor).ToList();
-    var startable = Model.Assignments.SelectMany(a => a.Activities.Select(e => new { Assignment = a, Evidence = e }))
-        .Where(x => x.Evidence.Status == EvidenceStatus.Available).ToList();
+    <section class="code-modal-card" aria-live="polite"><p>CÓDIGO TEMPORAL</p><div class="generated-code-row"><input id="generatedValidationCode" value="@code" readonly aria-label="Código temporal generado" /><button class="button secondary" type="button" onclick="copyField('generatedValidationCode')">Copiar</button></div><span>Actividad: @codeEvidenceId · Un solo uso.</span>@if (!string.IsNullOrWhiteSpace(expiresAt)){<span>Vence el @expiresAt (hora de Lima).</span>}<small>Al generar otro código para esta misma actividad, el anterior queda invalidado.</small></section>
 }
 <section class="stats-grid">
-    <article class="metric"><span>Colaboradores activos</span><strong>@Model.Assignments.Count(x => x.Status is TrainingStatus.Preboarding or TrainingStatus.InTraining or TrainingStatus.ReadyForFinalExam)</strong></article>
-    <article class="metric"><span>Pendientes de validar</span><strong>@pending.Count</strong></article>
-    <article class="metric"><span>Listos para iniciar</span><strong>@startable.Count</strong></article>
+    <article class="metric"><span>Colaboradores activos</span><strong>@Model.ActiveAssignmentCount</strong></article>
+    <article class="metric"><span>Pendientes de validar</span><strong>@Model.PendingActions.TotalItems</strong></article>
+    <article class="metric"><span>Listos para iniciar</span><strong>@Model.StartableActions.TotalItems</strong></article>
 </section>
-@if (pending.Any())
+@if (Model.PendingActions.TotalItems > 0)
 {
-    <section class="section-block"><div class="section-title"><div><p class="eyebrow">REQUIEREN ACCIÓN</p><h2>Validaciones pendientes</h2></div><span class="count-badge">@pending.Count</span></div>
+    <section class="section-block" id="validaciones-pendientes"><div class="section-title"><div><p class="eyebrow">REQUIEREN ACCIÓN</p><h2>Validaciones pendientes</h2></div><span class="count-badge">@Model.PendingActions.TotalItems</span></div>
+        <div class="card-grid">@foreach (var row in Model.PendingActions.Items){<article class="card action-card"><span class="status awaiting">Pendiente</span><h3>@row.Assignment.Collaborator.FullName</h3><p>@row.Evidence.Template.Title</p><div class="meta-row"><span>Conocimiento: @row.Evidence.KnowledgeScore%</span><span>@row.Assignment.Location.Name</span></div>@if(Model.IsAdministrator){<small>Supervisor: @row.Assignment.Supervisor.FullName</small>}<a class="button primary full" asp-action="Review" asp-route-id="@row.Evidence.Id" asp-route-supervisorId="@Model.SelectedSupervisorId">Validar práctica</a></article>}</div>
+        <partial name="_Pagination" model="@(new PaginationViewModel { Page = Model.PendingActions.Page, PageSize = Model.PendingActions.PageSize, TotalItems = Model.PendingActions.TotalItems, TotalPages = Model.PendingActions.TotalPages, Action = "Dashboard", PageParameter = "pendingPage", Anchor = "validaciones-pendientes", ItemLabel = "validaciones", RouteValues = new(sharedRoutes) { ["periodPage"] = Model.Assignments.Page.ToString(), ["startablePage"] = Model.StartableActions.Page.ToString() } })" />
+    </section>
+}
+<section class="section-block" id="codigos-disponibles"><div class="section-title"><div><p class="eyebrow">INICIO CONTROLADO</p><h2>Generar código temporal</h2></div><span class="count-badge">@Model.StartableActions.TotalItems</span></div>
     <div class="card-grid">
-    @foreach (var row in pending)
+    @foreach (var row in Model.StartableActions.Items)
     {
-        <article class="card action-card"><span class="status awaiting">Pendiente</span><h3>@row.Assignment.Collaborator.FullName</h3><p>@row.Evidence.Template.Title</p><div class="meta-row"><span>Conocimiento: @row.Evidence.KnowledgeScore%</span><span>@row.Assignment.Location.Name</span></div>@if(Model.IsAdministrator){<small>Supervisor: @row.Assignment.Supervisor.FullName</small>}<a class="button primary full" asp-action="Review" asp-route-id="@row.Evidence.Id" asp-route-supervisorId="@Model.SelectedSupervisorId">Validar práctica</a></article>
+        <article class="card action-card"><span class="status available">Disponible</span><h3>@row.Assignment.Collaborator.FullName</h3><p>@row.Evidence.Template.Title</p><small>Plazo: @Clock.Format(row.Evidence.DueAt)</small>@if(Model.IsAdministrator){<small>Supervisor: @row.Assignment.Supervisor.FullName</small>}<form asp-action="GenerateCode" method="post"><input type="hidden" name="evidenceId" value="@row.Evidence.Id" /><input type="hidden" name="supervisorId" value="@Model.SelectedSupervisorId" /><button class="button secondary full" type="submit">Generar código de un uso</button></form></article>
     }
-    </div></section>
-}
-<section class="section-block"><div class="section-title"><div><p class="eyebrow">INICIO CONTROLADO</p><h2>Generar código temporal</h2></div></div>
-<div class="card-grid">
-@foreach (var row in startable)
-{
-    <article class="card action-card"><span class="status available">Disponible</span><h3>@row.Assignment.Collaborator.FullName</h3><p>@row.Evidence.Template.Title</p><small>Plazo: @Clock.Format(row.Evidence.DueAt)</small>@if(Model.IsAdministrator){<small>Supervisor: @row.Assignment.Supervisor.FullName</small>}<form asp-action="GenerateCode" method="post"><input type="hidden" name="evidenceId" value="@row.Evidence.Id" /><input type="hidden" name="supervisorId" value="@Model.SelectedSupervisorId" /><button class="button secondary full" type="submit">Generar código de un uso</button></form></article>
-}
-@if (!startable.Any()) { <div class="card empty-inline">No existen actividades disponibles para iniciar.</div> }
-</div></section>
-<section class="section-block"><div class="section-title"><div><p class="eyebrow">RESUMEN</p><h2>Todos los periodos</h2></div></div>
-<div class="list-card">
-@foreach (var assignment in Model.Assignments)
-{
-    var completed = assignment.Activities.Count(x => x.Status == EvidenceStatus.Completed);
-    <div class="person-row">
-        <div class="avatar">@assignment.Collaborator.FullName[0]</div>
-        <div class="grow">
-            <strong>@assignment.Collaborator.FullName</strong>
-            <p>
-                <span>@assignment.Location.Name · @completed/6 evidencias</span>
-                @if (Model.IsAdministrator)
-                {
-                    <span> · Supervisor: @assignment.Supervisor.FullName</span>
-                }
-            </p>
-            <div class="progress"><span style="@($"width:{completed * 100 / 6}%")"></span></div>
-        </div>
-        <span class="status @assignment.Status.ToString().ToLowerInvariant()">@assignment.Status.Label()</span>
+    @if (Model.StartableActions.TotalItems == 0) { <div class="card empty-inline">No existen actividades disponibles para iniciar con los filtros seleccionados.</div> }
     </div>
-}
-@if (!Model.Assignments.Any()) { <div class="person-row"><p class="muted">Este supervisor todavía no tiene periodos de entrenamiento asignados.</p></div> }
-</div></section>
+    <partial name="_Pagination" model="@(new PaginationViewModel { Page = Model.StartableActions.Page, PageSize = Model.StartableActions.PageSize, TotalItems = Model.StartableActions.TotalItems, TotalPages = Model.StartableActions.TotalPages, Action = "Dashboard", PageParameter = "startablePage", Anchor = "codigos-disponibles", ItemLabel = "actividades", RouteValues = new(sharedRoutes) { ["periodPage"] = Model.Assignments.Page.ToString(), ["pendingPage"] = Model.PendingActions.Page.ToString() } })" />
+</section>
+<section class="section-block" id="periodos-supervisados"><div class="section-title"><div><p class="eyebrow">RESUMEN</p><h2>Periodos supervisados</h2></div><span class="count-badge">@Model.Assignments.TotalItems</span></div>
+    <div class="list-card">
+    @foreach (var assignment in Model.Assignments.Items)
+    {
+        var completed = assignment.Activities.Count(x => x.Status == EvidenceStatus.Completed);
+        <div class="person-row"><div class="avatar">@assignment.Collaborator.FullName[0]</div><div class="grow"><strong>@assignment.Collaborator.FullName</strong><p><span>@assignment.Location.Name · @completed/6 evidencias</span>@if (Model.IsAdministrator){<span> · Supervisor: @assignment.Supervisor.FullName</span>}</p><div class="progress"><span style="@($"width:{completed * 100 / 6}%")"></span></div></div><span class="status @assignment.Status.ToString().ToLowerInvariant()">@assignment.Status.Label()</span></div>
+    }
+    @if (Model.Assignments.TotalItems == 0) { <div class="person-row person-row-empty"><p class="muted">No se encontraron periodos con los filtros seleccionados.</p></div> }
+    </div>
+    <partial name="_Pagination" model="@(new PaginationViewModel { Page = Model.Assignments.Page, PageSize = Model.Assignments.PageSize, TotalItems = Model.Assignments.TotalItems, TotalPages = Model.Assignments.TotalPages, Action = "Dashboard", PageParameter = "periodPage", Anchor = "periodos-supervisados", ItemLabel = "periodos", RouteValues = new(sharedRoutes) { ["pendingPage"] = Model.PendingActions.Page.ToString(), ["startablePage"] = Model.StartableActions.Page.ToString() } })" />
+</section>

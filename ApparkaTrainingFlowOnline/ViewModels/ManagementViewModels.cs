@@ -8,8 +8,12 @@ public class CreateSupervisorViewModel
 {
     [Required, MaxLength(120)] public string FullName { get; set; } = string.Empty;
     [Required, EmailAddress, MaxLength(160)] public string Email { get; set; } = string.Empty;
-    [MaxLength(30)] public string? EmployeeCode { get; set; }
-    [Phone, MaxLength(30)] public string? Phone { get; set; }
+    [Required(ErrorMessage = "Ingresa el documento de identidad.")]
+    [RegularExpression("^[A-Za-z0-9]{8,15}$", ErrorMessage = "Usa entre 8 y 15 letras o números, sin espacios ni guiones.")]
+    [MaxLength(15)] public string EmployeeCode { get; set; } = string.Empty;
+    [Required(ErrorMessage = "Ingresa un teléfono de contacto.")]
+    [Phone(ErrorMessage = "Ingresa un número de teléfono válido.")]
+    [MaxLength(30)] public string Phone { get; set; } = string.Empty;
     [MinLength(1, ErrorMessage = "Selecciona al menos una sede.")]
     public List<int> LocationIds { get; set; } = [];
     public List<SelectListItem> Locations { get; set; } = [];
@@ -17,9 +21,42 @@ public class CreateSupervisorViewModel
 
 public class PeopleIndexViewModel
 {
-    public IReadOnlyList<PersonRowViewModel> Supervisors { get; set; } = [];
-    public IReadOnlyList<PersonRowViewModel> Collaborators { get; set; } = [];
+    public PagedResult<PersonRowViewModel> Supervisors { get; set; } = new();
+    public PagedResult<PersonRowViewModel> Collaborators { get; set; } = new();
     public IReadOnlyList<RepeatedObservationAlertViewModel> RepeatedObservationAlerts { get; set; } = [];
+    public string SupervisorSearch { get; set; } = string.Empty;
+    public bool? SupervisorIsActive { get; set; }
+    public string CollaboratorSearch { get; set; } = string.Empty;
+    public bool? CollaboratorIsActive { get; set; }
+}
+
+public class AdminIndexViewModel
+{
+    public PagedResult<AppUser> Users { get; set; } = new();
+    public IReadOnlyList<AuditLog> RepeatedObservationAlerts { get; set; } = [];
+    public int UserCount { get; set; }
+    public int AssignmentCount { get; set; }
+    public int CompletedCount { get; set; }
+    public int WarningCount { get; set; }
+    public string Search { get; set; } = string.Empty;
+    public string Role { get; set; } = string.Empty;
+    public bool? IsActive { get; set; }
+}
+
+public class HrIndexViewModel
+{
+    public PagedResult<TrainingAssignment> Assignments { get; set; } = new();
+    public IReadOnlyList<Location> Locations { get; set; } = [];
+    public string Search { get; set; } = string.Empty;
+    public TrainingStatus? Status { get; set; }
+    public int? LocationId { get; set; }
+}
+
+public class LocationsIndexViewModel
+{
+    public PagedResult<LocationRowViewModel> Locations { get; set; } = new();
+    public string Search { get; set; } = string.Empty;
+    public bool? IsActive { get; set; }
 }
 
 public class RepeatedObservationAlertViewModel
@@ -42,15 +79,22 @@ public class EditPersonViewModel
     public string Role { get; set; } = string.Empty;
     [Required, MaxLength(120)] public string FullName { get; set; } = string.Empty;
     [Required, EmailAddress, MaxLength(160)] public string Email { get; set; } = string.Empty;
-    [MaxLength(30)] public string? EmployeeCode { get; set; }
-    [Phone, MaxLength(30)] public string? Phone { get; set; }
+    [Required(ErrorMessage = "Ingresa el documento de identidad.")]
+    [RegularExpression("^[A-Za-z0-9]{8,15}$", ErrorMessage = "Usa entre 8 y 15 letras o números, sin espacios ni guiones.")]
+    [MaxLength(15)] public string EmployeeCode { get; set; } = string.Empty;
+    [Required(ErrorMessage = "Ingresa un teléfono de contacto.")]
+    [Phone(ErrorMessage = "Ingresa un número de teléfono válido.")]
+    [MaxLength(30)] public string Phone { get; set; } = string.Empty;
     public bool IsActive { get; set; } = true;
     public List<int> LocationIds { get; set; } = [];
     public int? AssignmentId { get; set; }
     public int? LocationId { get; set; }
     public int? SupervisorId { get; set; }
+    [DataType(DataType.Date)] public DateTime? AccessFrom { get; set; }
+    [DataType(DataType.Date)] public DateTime? StartDate { get; set; }
     public List<SelectListItem> Locations { get; set; } = [];
     public List<SelectListItem> Supervisors { get; set; } = [];
+    public Dictionary<int, int[]> SupervisorLocationIds { get; set; } = [];
 }
 
 public class LocationFormViewModel

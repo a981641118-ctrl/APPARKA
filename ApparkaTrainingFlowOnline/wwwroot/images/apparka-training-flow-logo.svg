@@ -1,23 +1,29 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 230 76" role="img" aria-labelledby="title description">
-  <title id="title">Apparka Training Flow</title>
-  <desc id="description">Identidad visual de Apparka Training Flow.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 247 74" role="img" aria-labelledby="apparkaLogoTitle apparkaLogoDescription">
+  <title id="apparkaLogoTitle">Apparka Training Flow</title>
+  <desc id="apparkaLogoDescription">Símbolo de Apparka junto al nombre Apparka Training Flow.</desc>
   <defs>
-    <linearGradient id="violet" x1="8" y1="68" x2="54" y2="4" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#31008c"/>
-      <stop offset=".55" stop-color="#5b11d8"/>
-      <stop offset="1" stop-color="#7f22ee"/>
+    <linearGradient id="apparkaViolet" x1="7" y1="72" x2="43" y2="2" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#35009a"/>
+      <stop offset="0.56" stop-color="#4700bd"/>
+      <stop offset="1" stop-color="#5600d2"/>
     </linearGradient>
-    <linearGradient id="magenta" x1="14" y1="63" x2="67" y2="18" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#7418e7"/>
-      <stop offset="1" stop-color="#ed42c4"/>
+    <linearGradient id="apparkaRibbon" x1="7" y1="68" x2="73" y2="11" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4000b5"/>
+      <stop offset="0.42" stop-color="#8b1bd5"/>
+      <stop offset="0.78" stop-color="#d746d7"/>
+      <stop offset="1" stop-color="#f555bf"/>
     </linearGradient>
   </defs>
-  <g>
-    <path d="M7 67 26 10c1.7-5.1 8.8-5.8 11.5-1.2L51 32.2 39.1 44.5 30.3 28 20.4 67Z" fill="url(#violet)"/>
-    <path d="M14 61.8c17.6-5.3 35.8-18.3 54-39.1-5.7 17.4-14.9 31.5-28.8 42.2-7.5 5.8-17.9 4.5-25.2-3.1Z" fill="url(#magenta)"/>
-    <path d="m38.9 44.4 14.6 22.5H38.8l-8.2-13.2Z" fill="#3c029d"/>
-    <path d="m26.8 10.1 7.2 17.3 11-8.1-7.5-10.5c-2.8-4-8.8-3.3-10.7 1.3Z" fill="#4d04bd"/>
+
+  <g aria-hidden="true">
+    <path fill="url(#apparkaViolet)" d="M.7 68.2 25.6 5.1C27.4.6 33.4-1.2 37.2 1.7c1.1.8 2 1.9 2.7 3.1l12.8 22.3-12 10.8-7.2-13.1-15.7 44.4c-1.5 4.2-6.7 5-12.8 4.4-4.1-.4-5.7-2.1-4.3-5.4Z"/>
+    <path fill="#2b037c" d="m38.2 36.9 34 30.7c2.5 2.3.9 6.4-2.5 6.4H58.1c-3 0-5.1-1.2-6.7-3.8L30.8 49.7Z"/>
+    <path fill="url(#apparkaRibbon)" d="M1.7 67.9C18 60.8 33.2 49.9 47.8 36.2L74 10.6c-3.5 13.7-10.5 27.2-21.6 38.2C40.3 60.9 25.8 69.2 10 73c-4.1 1-7.5-.8-8.3-5.1Z"/>
+    <path fill="#2d0381" d="m25.7 5.2 7.8 19.6 12.2-9.1-5.8-10.9C36.8-.9 28.2-.6 25.7 5.2Z" opacity=".92"/>
   </g>
-  <text x="79" y="40" fill="#2d0484" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="31" font-weight="800" letter-spacing="-.6">Apparka</text>
-  <text x="81" y="61" fill="#6a28c9" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="14" font-weight="600" letter-spacing=".4">Training Flow</text>
+
+  <g aria-hidden="true" font-family="'Segoe UI', Arial, sans-serif">
+    <text x="90" y="43.5" fill="#1e016e" font-size="35" font-weight="800" letter-spacing="-1.15" textLength="157" lengthAdjust="spacingAndGlyphs">Apparka</text>
+    <text x="90.5" y="67.5" fill="#723eb8" font-size="17" font-weight="400" textLength="106" lengthAdjust="spacingAndGlyphs">Training Flow</text>
+  </g>
 </svg>

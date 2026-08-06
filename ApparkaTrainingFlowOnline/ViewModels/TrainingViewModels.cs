@@ -41,12 +41,25 @@ public class FinalExamViewModel
 
 public class SupervisorDashboardViewModel
 {
-    public IReadOnlyList<TrainingAssignment> Assignments { get; set; } = [];
+    public PagedResult<TrainingAssignment> Assignments { get; set; } = new();
+    public PagedResult<SupervisorActionRowViewModel> PendingActions { get; set; } = new();
+    public PagedResult<SupervisorActionRowViewModel> StartableActions { get; set; } = new();
     public IReadOnlyList<AppUser> Supervisors { get; set; } = [];
+    public IReadOnlyList<Location> Locations { get; set; } = [];
     public int? SelectedSupervisorId { get; set; }
     public bool IsAdministrator { get; set; }
+    public int ActiveAssignmentCount { get; set; }
+    public string Search { get; set; } = string.Empty;
+    public TrainingStatus? Status { get; set; }
+    public int? LocationId { get; set; }
     public string? SelectedSupervisorName => Supervisors
         .FirstOrDefault(x => x.Id == SelectedSupervisorId)?.FullName;
+}
+
+public class SupervisorActionRowViewModel
+{
+    public TrainingAssignment Assignment { get; set; } = null!;
+    public ActivityEvidence Evidence { get; set; } = null!;
 }
 
 public class QuestionPresentationViewModel
