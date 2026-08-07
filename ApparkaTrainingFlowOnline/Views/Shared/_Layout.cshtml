@@ -49,7 +49,7 @@
             }
             @if (User.IsInRole(AppRoles.Supervisor) || User.IsInRole(AppRoles.Administrator))
             {
-                <a asp-controller="Supervisor" asp-action="Dashboard"><span>!</span>Supervisión</a>
+                <a asp-controller="Supervisor" asp-action="Dashboard" data-supervisor-nav><span>!</span>Supervisión</a>
             }
             @if (User.IsInRole(AppRoles.Hr) || User.IsInRole(AppRoles.Administrator))
             {

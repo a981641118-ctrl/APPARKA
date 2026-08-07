@@ -93,6 +93,7 @@ public class SupervisorController(
             Locations = await locationQuery.OrderBy(x => x.Name).ToListAsync(),
             SelectedSupervisorId = selectedSupervisorId,
             IsAdministrator = isAdministrator,
+            GuideCompleted = await IsGuideCompletedAsync("dashboard"),
             ActiveAssignmentCount = await scopedAssignments.CountAsync(x => x.Status == TrainingStatus.Preboarding
                 || x.Status == TrainingStatus.InTraining
                 || x.Status == TrainingStatus.ReadyForFinalExam),
@@ -134,9 +135,27 @@ public class SupervisorController(
             EvidenceId = evidence.Id,
             DashboardSupervisorId = supervisorId,
             Evidence = evidence,
-            Items = DefaultRubric()
+            Items = DefaultRubric(),
+            GuideCompleted = await IsGuideCompletedAsync("review")
         };
         return View(model);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CompleteGuide(string guide)
+    {
+        if (!User.IsInRole(AppRoles.Supervisor) || current.UserId is null) return Forbid();
+        if (guide is not ("dashboard" or "review")) return BadRequest();
+
+        var user = await db.Users.FirstOrDefaultAsync(x => x.Id == current.UserId.Value);
+        if (user is null) return NotFound();
+
+        if (guide == "dashboard") user.SupervisorDashboardGuideCompletedAt ??= clock.UtcNow;
+        else user.SupervisorReviewGuideCompletedAt ??= clock.UtcNow;
+
+        await db.SaveChangesAsync();
+        return Ok(new { success = true });
     }
 
     [HttpPost]
@@ -169,6 +188,7 @@ public class SupervisorController(
                 .Include(x => x.Template)
                 .Include(x => x.Answers).ThenInclude(x => x.Question)
                 .FirstAsync(x => x.Id == model.EvidenceId);
+            model.GuideCompleted = await IsGuideCompletedAsync("review");
             return View(model);
         }
         return RedirectToAction(nameof(Dashboard), new { supervisorId = model.DashboardSupervisorId });
@@ -182,4 +202,23 @@ public class SupervisorController(
         new() { Criterion = "Mantiene una atención adecuada" },
         new() { Criterion = "Verifica y registra el resultado" }
     ];
+
+    private async Task<bool> IsGuideCompletedAsync(string guide)
+    {
+        if (User.IsInRole(AppRoles.Administrator)) return true;
+        if (current.UserId is null) return false;
+
+        var state = await db.Users.AsNoTracking()
+            .Where(x => x.Id == current.UserId.Value)
+            .Select(x => new
+            {
+                x.SupervisorDashboardGuideCompletedAt,
+                x.SupervisorReviewGuideCompletedAt
+            })
+            .FirstOrDefaultAsync();
+
+        return guide == "dashboard"
+            ? state?.SupervisorDashboardGuideCompletedAt is not null
+            : state?.SupervisorReviewGuideCompletedAt is not null;
+    }
 }

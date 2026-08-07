@@ -21,6 +21,7 @@ public class SupervisorReviewViewModel
     public string? OverallEvidence { get; set; }
     public string? MainImprovement { get; set; }
     public string Feedback { get; set; } = string.Empty;
+    public bool GuideCompleted { get; set; }
 }
 
 public class RubricInput
@@ -48,6 +49,7 @@ public class SupervisorDashboardViewModel
     public IReadOnlyList<Location> Locations { get; set; } = [];
     public int? SelectedSupervisorId { get; set; }
     public bool IsAdministrator { get; set; }
+    public bool GuideCompleted { get; set; }
     public int ActiveAssignmentCount { get; set; }
     public string Search { get; set; } = string.Empty;
     public TrainingStatus? Status { get; set; }
