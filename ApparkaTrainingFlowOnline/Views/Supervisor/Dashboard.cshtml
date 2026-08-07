@@ -10,26 +10,32 @@
         ["locationId"] = Model.LocationId?.ToString()
     };
 }
-<section class="page-header"><p class="eyebrow">GESTIÓN POR EXCEPCIÓN</p><h1>@(Model.IsAdministrator ? "Panel de supervisión" : "Panel del supervisor")</h1><p>Genera el código de inicio y valida únicamente actividades prácticas pendientes.</p></section>
+<section class="page-header guide-enabled" data-supervisor-tour-target="dashboard-overview">
+    <div><p class="eyebrow">GESTIÓN POR EXCEPCIÓN</p><h1>@(Model.IsAdministrator ? "Panel de supervisión" : "Panel del supervisor")</h1><p>Genera el código de inicio y valida únicamente actividades prácticas pendientes.</p></div>
+    @if (!Model.IsAdministrator)
+    {
+        <button class="tour-launch" type="button" data-supervisor-tour-start="dashboard" aria-label="Abrir guía del panel"><span class="tour-launch-icon">?</span><span>Ver guía</span></button>
+    }
+</section>
 @if (TempData["ValidationCode"] is string code)
 {
     var expiresAt = TempData["ValidationCodeExpiresAt"] as string;
     var codeEvidenceId = TempData["ValidationCodeEvidenceId"];
     <section class="code-modal-card" aria-live="polite"><p>CÓDIGO TEMPORAL</p><div class="generated-code-row"><input id="generatedValidationCode" value="@code" readonly aria-label="Código temporal generado" /><button class="button secondary" type="button" onclick="copyField('generatedValidationCode')">Copiar</button></div><span>Actividad: @codeEvidenceId · Un solo uso.</span>@if (!string.IsNullOrWhiteSpace(expiresAt)){<span>Vence el @expiresAt (hora de Lima).</span>}<small>Al generar otro código para esta misma actividad, el anterior queda invalidado.</small></section>
 }
-<section class="stats-grid">
+<section class="stats-grid" data-supervisor-tour-target="dashboard-metrics">
     <article class="metric"><span>Colaboradores activos</span><strong>@Model.ActiveAssignmentCount</strong></article>
     <article class="metric"><span>Pendientes de validar</span><strong>@Model.PendingActions.TotalItems</strong></article>
     <article class="metric"><span>Listos para iniciar</span><strong>@Model.StartableActions.TotalItems</strong></article>
 </section>
 @if (Model.PendingActions.TotalItems > 0)
 {
-    <section class="section-block" id="validaciones-pendientes"><div class="section-title"><div><p class="eyebrow">REQUIEREN ACCIÓN</p><h2>Validaciones pendientes</h2></div><span class="count-badge">@Model.PendingActions.TotalItems</span></div>
+    <section class="section-block" id="validaciones-pendientes" data-supervisor-tour-target="dashboard-pending"><div class="section-title"><div><p class="eyebrow">REQUIEREN ACCIÓN</p><h2>Validaciones pendientes</h2></div><span class="count-badge">@Model.PendingActions.TotalItems</span></div>
         <div class="card-grid">@foreach (var row in Model.PendingActions.Items){<article class="card action-card"><span class="status awaiting">Pendiente</span><h3>@row.Assignment.Collaborator.FullName</h3><p>@row.Evidence.Template.Title</p><div class="meta-row"><span>Conocimiento: @row.Evidence.KnowledgeScore%</span><span>@row.Assignment.Location.Name</span></div>@if(Model.IsAdministrator){<small>Supervisor: @row.Assignment.Supervisor.FullName</small>}<a class="button primary full" asp-action="Review" asp-route-id="@row.Evidence.Id" asp-route-supervisorId="@Model.SelectedSupervisorId">Validar práctica</a></article>}</div>
         <partial name="_Pagination" model="@(new PaginationViewModel { Page = Model.PendingActions.Page, PageSize = Model.PendingActions.PageSize, TotalItems = Model.PendingActions.TotalItems, TotalPages = Model.PendingActions.TotalPages, Action = "Dashboard", PageParameter = "pendingPage", Anchor = "validaciones-pendientes", ItemLabel = "validaciones", RouteValues = new(sharedRoutes) { ["periodPage"] = Model.Assignments.Page.ToString(), ["startablePage"] = Model.StartableActions.Page.ToString() } })" />
     </section>
 }
-<section class="section-block" id="codigos-disponibles"><div class="section-title"><div><p class="eyebrow">INICIO CONTROLADO</p><h2>Generar código temporal</h2></div><span class="count-badge">@Model.StartableActions.TotalItems</span></div>
+<section class="section-block" id="codigos-disponibles" data-supervisor-tour-target="dashboard-codes"><div class="section-title"><div><p class="eyebrow">INICIO CONTROLADO</p><h2>Generar código temporal</h2></div><span class="count-badge">@Model.StartableActions.TotalItems</span></div>
     <div class="card-grid">
     @foreach (var row in Model.StartableActions.Items)
     {
@@ -39,7 +45,7 @@
     </div>
     <partial name="_Pagination" model="@(new PaginationViewModel { Page = Model.StartableActions.Page, PageSize = Model.StartableActions.PageSize, TotalItems = Model.StartableActions.TotalItems, TotalPages = Model.StartableActions.TotalPages, Action = "Dashboard", PageParameter = "startablePage", Anchor = "codigos-disponibles", ItemLabel = "actividades", RouteValues = new(sharedRoutes) { ["periodPage"] = Model.Assignments.Page.ToString(), ["pendingPage"] = Model.PendingActions.Page.ToString() } })" />
 </section>
-<section class="section-block" id="periodos-supervisados">
+<section class="section-block" id="periodos-supervisados" data-supervisor-tour-target="dashboard-periods">
     <div class="section-title"><div><p class="eyebrow">RESUMEN</p><h2>Periodos supervisados</h2></div><span class="count-badge">@Model.Assignments.TotalItems</span></div>
     <section class="card supervisor-filter-card" id="filtros-supervision">
         <form asp-action="Dashboard" method="get" class="list-filter supervisor-dashboard-filter" aria-label="Filtrar periodos supervisados">
@@ -64,3 +70,16 @@
     </div>
     <partial name="_Pagination" model="@(new PaginationViewModel { Page = Model.Assignments.Page, PageSize = Model.Assignments.PageSize, TotalItems = Model.Assignments.TotalItems, TotalPages = Model.Assignments.TotalPages, Action = "Dashboard", PageParameter = "periodPage", Anchor = "periodos-supervisados", ItemLabel = "periodos", RouteValues = new(sharedRoutes) { ["pendingPage"] = Model.PendingActions.Page.ToString(), ["startablePage"] = Model.StartableActions.Page.ToString() } })" />
 </section>
+@if (!Model.IsAdministrator)
+{
+    <div class="collaborator-tour supervisor-tour" data-supervisor-tour data-tour-kind="dashboard" data-tour-completed="@(Model.GuideCompleted ? "true" : "false")" data-tour-complete-url="@Url.Action("CompleteGuide", "Supervisor")" hidden role="dialog" aria-modal="true" aria-labelledby="supervisorDashboardTourTitle">
+        @Html.AntiForgeryToken()
+        <button class="tour-scrim" type="button" data-supervisor-tour-close aria-label="Cerrar guía"></button>
+        <section class="tour-dialog">
+            <span class="tour-counter" data-supervisor-tour-counter></span>
+            <h2 id="supervisorDashboardTourTitle" data-supervisor-tour-title></h2>
+            <p data-supervisor-tour-text></p>
+            <div class="tour-actions"><button class="button ghost" type="button" data-supervisor-tour-close>Omitir</button><button class="button secondary" type="button" data-supervisor-tour-previous>Anterior</button><button class="button primary" type="button" data-supervisor-tour-next>Siguiente</button></div>
+        </section>
+    </div>
+}

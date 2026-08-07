@@ -18,6 +18,8 @@ public class AppUser
     [MaxLength(64)] public string? PasswordResetTokenHash { get; set; }
     public DateTimeOffset? PasswordResetExpiresAt { get; set; }
     public DateTimeOffset? WelcomeAcknowledgedAt { get; set; }
+    public DateTimeOffset? SupervisorDashboardGuideCompletedAt { get; set; }
+    public DateTimeOffset? SupervisorReviewGuideCompletedAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public ICollection<SupervisorLocation> SupervisorLocations { get; set; } = [];
 }

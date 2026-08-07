@@ -346,6 +346,123 @@ document.querySelectorAll('[data-collaborator-tour]').forEach(tour => {
     if (!localStorage.getItem(storageKey)) setTimeout(start, 700);
 });
 
+document.querySelectorAll('[data-supervisor-tour]').forEach(tour => {
+    const kind = tour.dataset.tourKind;
+    const stepSets = {
+        dashboard: [
+            { selector: '[data-supervisor-tour-target="dashboard-overview"]', title: 'Tu centro de supervisión', text: 'Desde este panel podrás anticipar nuevos ingresos, iniciar actividades y atender únicamente los casos que requieren tu intervención.' },
+            { selector: '[data-supervisor-tour-target="dashboard-metrics"]', title: 'Prioriza tu jornada', text: 'Estos indicadores resumen cuántos colaboradores están activos, qué prácticas debes validar y qué actividades están listas para comenzar.' },
+            { selector: '[data-supervisor-tour-target="dashboard-pending"]', title: 'Valida la práctica observada', text: 'Aquí aparecen los colaboradores que ya respondieron sus preguntas. Tu tarea es evaluar cómo ejecutaron la actividad durante sus funciones.' },
+            { selector: '[data-supervisor-tour-target="dashboard-codes"]', title: 'Genera un acceso de un solo uso', text: 'El código temporal permite que el colaborador inicie únicamente la actividad disponible. No necesitas prestarle tu teléfono ni realizarle el cuestionario.' },
+            { selector: '[data-supervisor-tour-target="dashboard-periods"]', title: 'Anticipa y consulta tus ingresos', text: 'Revisa quiénes están por comenzar, su sede y su avance. Los filtros te ayudarán cuando tengas varios colaboradores asignados.' },
+            { selector: '[data-supervisor-nav]', title: 'Vuelve rápidamente a supervisión', text: 'La barra inferior te permite regresar al panel desde cualquier sección disponible para tu rol.' }
+        ],
+        review: [
+            { selector: '[data-supervisor-tour-target="review-challenge"]', title: 'Evalúa la ejecución, no el cuestionario', text: 'El colaborador ya respondió la parte teórica. Observa cómo realiza el reto práctico durante sus funciones y califica únicamente lo que realmente viste.' },
+            { selector: '[data-supervisor-tour-target="review-rubric"]', title: 'Completa los cinco criterios', text: 'Selecciona el nivel alcanzado en cada criterio. Si marcas cumplimiento parcial o incumplimiento, describe el hecho observado y la orientación que brindaste.' },
+            { selector: '[data-supervisor-tour-target="review-overall"]', title: 'Registra una conclusión verificable', text: 'Indica el resultado general, el principal aspecto correcto y una evidencia concreta. Si requiere mejora, especifica también qué debe reforzar.' },
+            { selector: '[data-supervisor-tour-target="review-motivator"]', title: 'Tu observación sí importa', text: 'Este asistente te recordará que una descripción clara ayuda al colaborador a mejorar y protege la calidad del entrenamiento.' },
+            { selector: '[data-supervisor-tour-target="review-close"]', title: 'Revisa antes de cerrar', text: 'Al cerrar se registrarán la rúbrica, las observaciones y el porcentaje final. Esta evidencia no tendrá un nuevo intento.' }
+        ]
+    };
+    const steps = (stepSets[kind] ?? [])
+        .map(step => ({ ...step, target: document.querySelector(step.selector) }))
+        .filter(step => step.target);
+
+    const title = tour.querySelector('[data-supervisor-tour-title]');
+    const text = tour.querySelector('[data-supervisor-tour-text]');
+    const counter = tour.querySelector('[data-supervisor-tour-counter]');
+    const previous = tour.querySelector('[data-supervisor-tour-previous]');
+    const next = tour.querySelector('[data-supervisor-tour-next]');
+    const dialog = tour.querySelector('.tour-dialog');
+    let current = 0;
+    let completionSent = tour.dataset.tourCompleted === 'true';
+
+    const clearHighlight = () => document.querySelectorAll('.tour-highlight').forEach(element => element.classList.remove('tour-highlight'));
+    const saveCompletion = () => {
+        if (completionSent) return;
+        completionSent = true;
+        tour.dataset.tourCompleted = 'true';
+        const token = tour.querySelector('input[name="__RequestVerificationToken"]')?.value;
+        const url = tour.dataset.tourCompleteUrl;
+        if (!token || !url) return;
+        const body = new URLSearchParams({ guide: kind, __RequestVerificationToken: token });
+        fetch(url, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+            body: body.toString(),
+            keepalive: true
+        }).catch(() => { completionSent = false; });
+    };
+    const close = () => {
+        clearHighlight();
+        tour.hidden = true;
+        document.body.classList.remove('tour-open');
+        saveCompletion();
+    };
+    const finish = () => {
+        close();
+        requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
+    };
+    const placeDialog = target => {
+        const targetRect = target.getBoundingClientRect();
+        const dialogHeight = dialog.offsetHeight;
+        const gap = 16;
+        const edge = 12;
+        const roomBelow = window.innerHeight - targetRect.bottom;
+        const roomAbove = targetRect.top;
+        let top;
+
+        if (roomBelow >= dialogHeight + gap) {
+            top = targetRect.bottom + gap;
+            dialog.dataset.placement = 'below';
+        } else if (roomAbove >= dialogHeight + gap) {
+            top = targetRect.top - dialogHeight - gap;
+            dialog.dataset.placement = 'above';
+        } else {
+            top = Math.max(edge, window.innerHeight - dialogHeight - edge);
+            dialog.dataset.placement = 'floating';
+        }
+
+        dialog.style.top = `${Math.max(edge, Math.min(top, window.innerHeight - dialogHeight - edge))}px`;
+    };
+    const render = () => {
+        clearHighlight();
+        const step = steps[current];
+        if (!step) return close();
+        const topbarHeight = document.querySelector('.topbar')?.offsetHeight ?? 0;
+        const targetTop = step.target.getBoundingClientRect().top + window.scrollY;
+        const previousScrollBehavior = document.documentElement.style.scrollBehavior;
+        document.documentElement.style.scrollBehavior = 'auto';
+        window.scrollTo(0, Math.max(0, targetTop - topbarHeight - 18));
+        document.documentElement.style.scrollBehavior = previousScrollBehavior;
+        step.target.classList.add('tour-highlight');
+        title.textContent = step.title;
+        text.textContent = step.text;
+        counter.textContent = `PASO ${current + 1} DE ${steps.length}`;
+        previous.hidden = current === 0;
+        next.textContent = current === steps.length - 1 ? 'Finalizar' : 'Siguiente';
+        requestAnimationFrame(() => requestAnimationFrame(() => placeDialog(step.target)));
+    };
+    const start = () => {
+        if (steps.length === 0) return;
+        current = 0;
+        tour.hidden = false;
+        document.body.classList.add('tour-open');
+        render();
+    };
+
+    document.querySelectorAll(`[data-supervisor-tour-start="${kind}"]`).forEach(button => button.addEventListener('click', start));
+    tour.querySelectorAll('[data-supervisor-tour-close]').forEach(button => button.addEventListener('click', close));
+    previous.addEventListener('click', () => { if (current > 0) { current--; render(); } });
+    next.addEventListener('click', () => { if (current >= steps.length - 1) finish(); else { current++; render(); } });
+    document.addEventListener('keydown', event => { if (event.key === 'Escape' && !tour.hidden) close(); });
+    window.addEventListener('resize', () => { if (!tour.hidden && steps[current]) placeDialog(steps[current].target); });
+
+    if (!completionSent) setTimeout(start, 700);
+});
+
 document.querySelectorAll('[data-exception-dialog]').forEach(dialog => {
     const form = dialog.querySelector('[data-exception-form]');
     const title = dialog.querySelector('[data-exception-title]');
