@@ -388,7 +388,7 @@ public class TrainingWorkflowService(
             evidence.PossibleSharedDevice ? AuditSeverity.Warning : AuditSeverity.Info);
 
         await CreateRepeatedObservationAlertIfNeededAsync(evidence, rubric);
-        return new(true, "Evidencia registrada. No se habilitan reintentos para esta actividad.");
+        return new(true, "¡Buen trabajo! La evaluación quedó registrada correctamente. Esta actividad no admite reintentos.");
     }
 
     private async Task CreateRepeatedObservationAlertIfNeededAsync(

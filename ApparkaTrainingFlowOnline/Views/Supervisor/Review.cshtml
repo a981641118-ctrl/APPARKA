@@ -2,6 +2,10 @@
 @{ ViewData["Title"] = "Validar práctica"; }
 <section class="page-header"><p class="eyebrow">VALIDACIÓN INDEPENDIENTE</p><h1>@Model.Evidence.Assignment.Collaborator.FullName</h1><p>@Model.Evidence.Template.Title</p></section>
 <section class="card challenge-card"><span>RETO PRÁCTICO ASIGNADO</span><h2>@(Model.Evidence.AssignedChallenge ?? Model.Evidence.Template.PracticalChallenge)</h2><p>El colaborador ya respondió el cuestionario con @Model.Evidence.KnowledgeScore%. Evalúa la ejecución observada; no vuelvas a realizarle las preguntas.</p></section>
+<aside class="supervisor-motivator" tabindex="0" aria-label="Mensaje para el supervisor">
+    <img src="~/images/motivation-helper.png" alt="" />
+    <span class="motivator-message" role="tooltip"><strong>Tu observación sí importa</strong> Describe lo que realmente viste: una evaluación clara ayuda al colaborador a crecer.</span>
+</aside>
 <form asp-action="Review" method="post" class="card form-card supervisor-review-form" data-supervisor-review>
     <input asp-for="EvidenceId" type="hidden" />
     <input asp-for="DashboardSupervisorId" type="hidden" />
@@ -29,6 +33,7 @@
         </div>
         <div class="evaluation-suggestion" data-evaluation-suggestion>Completa primero los cinco criterios para recibir una orientación del sistema.</div>
     </section>
+    <div class="rubric-ready-message" data-rubric-ready hidden><strong>¡Buen trabajo!</strong> La evaluación está completa y lista para registrarse.</div>
     <label asp-for="Feedback">Comentario adicional <span class="optional-label">Opcional</span></label>
     <textarea asp-for="Feedback" rows="3" maxlength="1000" placeholder="Añade información complementaria que no haya quedado registrada arriba."></textarea>
     <div class="info-box"><strong>Esta evidencia no tiene reintento</strong><p>Al guardar, se registrarán el porcentaje y los errores. El examen final será la única etapa con hasta tres intentos.</p></div>

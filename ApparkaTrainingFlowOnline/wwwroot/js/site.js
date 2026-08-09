@@ -82,6 +82,28 @@ document.querySelectorAll('[data-supervisor-review]').forEach(form => {
     const improvementInput = improvementField?.querySelector('textarea');
     const suggestion = form.querySelector('[data-evaluation-suggestion]');
     const noStrengthOption = observedStrength?.querySelector('option[value="6"]');
+    const readyMessage = form.querySelector('[data-rubric-ready]');
+
+    const hasStructuredText = field => {
+        if (!field) return false;
+        const text = field.value.trim();
+        return text.length >= 25 && text.split(/\s+/).filter(Boolean).length >= 5;
+    };
+
+    const updateCompletionMessage = () => {
+        const ratingsComplete = rows.every(row => {
+            const rating = row.querySelector('[data-rubric-rating]');
+            const requiresDetail = rating?.value === '2' || rating?.value === '3';
+            if (!rating || rating.value === '0') return false;
+            if (!requiresDetail) return true;
+            return [...row.querySelectorAll('[data-rubric-details] textarea')].every(hasStructuredText);
+        });
+        const generalComplete = overallAssessment?.value !== '0'
+            && observedStrength?.value !== '0'
+            && hasStructuredText(form.querySelector('[name="OverallEvidence"]'))
+            && (overallAssessment?.value !== '3' || hasStructuredText(improvementInput));
+        readyMessage.hidden = !(ratingsComplete && generalComplete);
+    };
 
     const updateSuggestion = () => {
         const ratings = rows.map(row => Number(row.querySelector('[data-rubric-rating]')?.value ?? 0));
@@ -110,6 +132,7 @@ document.querySelectorAll('[data-supervisor-review]').forEach(form => {
         });
         rating.setCustomValidity(rating.value === '0' ? 'Selecciona una calificación.' : '');
         updateSuggestion();
+        updateCompletionMessage();
     };
 
     const updateOverall = () => {
@@ -125,6 +148,7 @@ document.querySelectorAll('[data-supervisor-review]').forEach(form => {
         if (!needsImprovement) improvementInput.value = '';
         strengthLabel.textContent = needsImprovement ? 'Principal fortaleza identificada' : 'Principal fortaleza o aspecto correcto';
         evidenceLabel.textContent = needsImprovement ? 'Evidencia que sustenta la evaluación' : 'Ejemplo concreto de la fortaleza seleccionada';
+        updateCompletionMessage();
     };
 
     rows.forEach(row => {
@@ -133,9 +157,64 @@ document.querySelectorAll('[data-supervisor-review]').forEach(form => {
     });
     overallAssessment?.addEventListener('change', updateOverall);
     observedStrength?.addEventListener('change', updateOverall);
+    form.querySelectorAll('textarea').forEach(field => field.addEventListener('input', updateCompletionMessage));
     form.addEventListener('submit', () => {
         rows.forEach(updateRubricRow);
         updateOverall();
     });
     updateOverall();
+});
+
+document.querySelectorAll('[data-collaborator-tour]').forEach(tour => {
+    const storageKey = `apparka-collaborator-tour-v1-${tour.dataset.tourUser ?? 'current'}`;
+    const steps = [
+        { selector: '[data-tour-target="overview"]', title: 'Tu progreso de un vistazo', text: 'Aquí verás tu porcentaje de avance, el puesto y la sede asignada. Puedes volver a abrir esta guía con el botón “Ver guía”.' },
+        { selector: '[data-tour-target="resume"]', title: 'Continúa donde te quedaste', text: 'Si una actividad quedó pendiente, este bloque te permitirá retomarla sin empezar nuevamente.' },
+        { selector: '[data-tour-target="route"]', title: 'Completa las seis evidencias', text: 'Tu entrenamiento tiene dos actividades por semana. Debes completarlas en orden; cada nueva actividad se habilita cuando corresponde.' },
+        { selector: '[data-tour-target="materials"]', title: 'Estudia antes de ejecutar', text: 'Revisa estos módulos para conocer tus funciones, los procedimientos y las recomendaciones de seguridad.' },
+        { selector: '[data-tour-target="exam"]', title: 'Prepárate para el examen final', text: 'El examen se habilita después de completar las seis evidencias. Tendrás hasta tres intentos y necesitarás 80% para aprobar.' },
+        { selector: '[data-collaborator-nav]', title: 'Navega fácilmente', text: 'Desde la barra inferior puedes volver al inicio o ingresar directamente a tu proceso de entrenamiento.' }
+    ].map(step => ({ ...step, target: document.querySelector(step.selector) })).filter(step => step.target);
+
+    const title = tour.querySelector('[data-tour-title]');
+    const text = tour.querySelector('[data-tour-text]');
+    const counter = tour.querySelector('[data-tour-counter]');
+    const previous = tour.querySelector('[data-tour-previous]');
+    const next = tour.querySelector('[data-tour-next]');
+    let current = 0;
+
+    const clearHighlight = () => document.querySelectorAll('.tour-highlight').forEach(element => element.classList.remove('tour-highlight'));
+    const close = () => {
+        clearHighlight();
+        tour.hidden = true;
+        document.body.classList.remove('tour-open');
+        localStorage.setItem(storageKey, 'completed');
+    };
+    const render = () => {
+        clearHighlight();
+        const step = steps[current];
+        if (!step) return close();
+        step.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        step.target.classList.add('tour-highlight');
+        title.textContent = step.title;
+        text.textContent = step.text;
+        counter.textContent = `PASO ${current + 1} DE ${steps.length}`;
+        previous.hidden = current === 0;
+        next.textContent = current === steps.length - 1 ? 'Finalizar' : 'Siguiente';
+    };
+    const start = () => {
+        if (steps.length === 0) return;
+        current = 0;
+        tour.hidden = false;
+        document.body.classList.add('tour-open');
+        render();
+    };
+
+    document.querySelectorAll('[data-tour-start]').forEach(button => button.addEventListener('click', start));
+    tour.querySelectorAll('[data-tour-close]').forEach(button => button.addEventListener('click', close));
+    previous.addEventListener('click', () => { if (current > 0) { current--; render(); } });
+    next.addEventListener('click', () => { if (current >= steps.length - 1) close(); else { current++; render(); } });
+    document.addEventListener('keydown', event => { if (event.key === 'Escape' && !tour.hidden) close(); });
+
+    if (!localStorage.getItem(storageKey)) setTimeout(start, 700);
 });

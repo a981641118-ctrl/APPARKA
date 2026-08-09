@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#102a43" />
+    <meta name="theme-color" content="#1e1e2e" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <link rel="manifest" href="~/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="~/icons/icon-192.png" />
@@ -13,8 +13,7 @@
 <body>
     <header class="topbar">
         <a class="brand" asp-controller="Home" asp-action="Index">
-            <span class="brand-mark">A</span>
-            <span><strong>Training Flow</strong><small>Validación de competencias</small></span>
+            <span class="brand-logo" role="img" aria-label="Apparka Training Flow"><img src="~/images/apparka-training-flow-brand.png" alt="" /></span>
         </a>
         @if (User.Identity?.IsAuthenticated == true)
         {
@@ -46,7 +45,7 @@
             <a asp-controller="Home" asp-action="Index"><span>⌂</span>Inicio</a>
             @if (User.IsInRole(AppRoles.Collaborator))
             {
-                <a asp-controller="Training" asp-action="Index"><span>✓</span>Mi proceso</a>
+                <a asp-controller="Training" asp-action="Index" data-collaborator-nav><span>✓</span>Mi proceso</a>
             }
             @if (User.IsInRole(AppRoles.Supervisor) || User.IsInRole(AppRoles.Administrator))
             {

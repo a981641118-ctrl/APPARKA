@@ -6,8 +6,7 @@
     <div class="form-grid">
         <div><label asp-for="FullName">Nombre completo</label><input asp-for="FullName" /><span asp-validation-for="FullName"></span></div>
         <div><label asp-for="Email">Correo personal o corporativo</label><input asp-for="Email" /><span asp-validation-for="Email"></span></div>
-        <div><label asp-for="EmployeeCode">Código interno o documento</label><input asp-for="EmployeeCode" /><span asp-validation-for="EmployeeCode"></span></div>
-        <div><label asp-for="Phone">Teléfono</label><input asp-for="Phone" inputmode="tel" /><span asp-validation-for="Phone"></span></div>
+        <div><label asp-for="IdentityDocument">Documento de identidad</label><input asp-for="IdentityDocument" inputmode="text" autocomplete="off" placeholder="DNI o CE" /><span asp-validation-for="IdentityDocument"></span></div>
         <div><label asp-for="LocationId">Sede</label><select asp-for="LocationId" asp-items="Model.Locations"><option value="">Seleccionar</option></select></div>
         <div><label asp-for="SupervisorId">Supervisor responsable</label><select asp-for="SupervisorId" asp-items="Model.Supervisors"><option value="">Seleccionar</option></select></div>
         <div><label asp-for="AccessFrom">Acceso a materiales desde</label><input asp-for="AccessFrom" /><span asp-validation-for="AccessFrom"></span></div>
